@@ -56,7 +56,8 @@ try:
 except Exception as e:
     print(text_error("can`t get followings :",e))
 else:
-    print(text_success("followings getted!"))
+    print(text_success(f"all users added :{text_magenta(len(followings))}"))
+
 
 # ------------ foreach to followings ------------
 while True:
