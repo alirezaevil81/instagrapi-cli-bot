@@ -15,7 +15,7 @@ login = False
 
 while not login:
 
-    username = input(f"Username{Fore.CYAN}(required){Style.RESET_ALL}: ")
+    username = input(f"Username{text_cyan("(required)")}: ")
 
     if os.path.exists(f"data/json/{username}.json"):
         session_input = input(text_warning(f'You have a session for {text_blue(username)}. Do you want to use it? [Default is Y] [Y/N]: '))
@@ -36,8 +36,8 @@ while not login:
             login = True
             print(text_success("login via session successful!"))
     else:
-        password = input(text_cyan("(required)"))
-        verify_code = input(text_yellow("optional"))
+        password = input(f"Password{text_cyan("(required)")}:")
+        verify_code = input(f"Verify code{text_cyan("(optional)")}:")
         try:
             cl.login(username=username, password=password, verification_code=verify_code)
             cl.dump_settings(f"data/json/{username}.json")
@@ -49,7 +49,7 @@ while not login:
 
 # ----------- get all followings --------------
 
-cl.delay_range = [1, 2]
+cl.delay_range = [int(input("set delay range num 1:")), int(input("set delay range num 2:"))]  # set delay range for requests
 
 try:
     followings = cl.user_following(cl.user_id)
@@ -64,33 +64,33 @@ while True:
     for user in followings.values():
         user_posts = []
         try:
-            user_posts = cl.user_medias(user.pk, 1)
+            user_posts = cl.user_medias(user.pk, 4)
         except Exception as e:
             print(text_error(f"to get {user.username} posts :",e))
         else:
             print(text_success(f"{user.username} posts getted"))
         if user_posts != []:
-            post = user_posts[0]
-            if post.has_liked:
-                print(text_warning(f"post {post.pk} before liked"))
-            else:
-                ############# like user post
-                try:
-                    cl.media_like(post.pk)
-                except Exception as e:
-                    print(text_error(f"to liking post {post.pk} :",e))
+            for i, post in enumerate(user_posts):
+                if post.has_liked:
+                    print(text_warning(f"post {post.pk} before liked"))
                 else:
-                    print(text_success(f"post {post.pk} liked"))
-                    sleep(randint(60, 65))
-                ############# comment user post
-                try:
-                    comment = choice(comments)
-                    cl.media_comment(post.pk, comment)
-                except Exception as e:
-                    print(text_error(f"error to commenting on post {post.pk} :",e))
-                else:
-                    print(text_success(f"commented={comment} on post {post.pk}"))
-                    sleep(randint(60, 90))
+                    ############# like user post
+                    try:
+                        cl.media_like(post.pk)
+                    except Exception as e:
+                        print(text_error(f"to liking post {post.pk} :",e))
+                    else:
+                        print(text_success(f"post {post.pk} liked"))
+                        sleep(randint(60, 65))
+                    ############# comment user post
+                    try:
+                        comment = choice(comments)
+                        cl.media_comment(post.pk, comment)
+                    except Exception as e:
+                        print(text_error(f"error to commenting on post {post.pk} :",e))
+                    else:
+                        print(text_success(f"commented={comment} on post {post.pk}"))
+                        sleep(randint(60, 90))
         else:
             print(text_warning(f"no posts found for {text_cyan(user.username)}"))
 
