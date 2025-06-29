@@ -5,6 +5,10 @@ from instagrapi import Client
 from prettytable import PrettyTable
 from bot.utils import *
 from bot.config import *
+from datetime import timedelta
+
+def hours_to_seconds(hours):
+    return timedelta(hours=hours).total_seconds()
 
 # ---------  login ------------
 
@@ -49,14 +53,26 @@ while not login:
 
 # ----------- get all followings --------------
 
-cl.delay_range = [int(input("set delay range num 1:")), int(input("set delay range num 2:"))]  # set delay range for requests
-
 try:
     followings = cl.user_following(cl.user_id)
 except Exception as e:
     print(text_error("can`t get followings :",e))
 else:
     print(text_success(f"all users added :{text_magenta(len(followings))}"))
+
+# ----------- config --------------
+
+# set delay range for requests
+cl.delay_range = [int(input("set delay range num 1:")), int(input("set delay range num 2:"))]  
+
+# set sleep after loop
+sleep_after_loop = hours_to_seconds(int(input("Enter the hours of sleep after the last loop:")))
+
+# set commenting true or false
+if input("Do you want to leave comments on posts? [Default is Y] [Y/N]: ").lower() in ('no', 'n', 'No', 'N', 'NO'):
+    commenting = False
+else:
+    commenting = True
 
 
 # ------------ foreach to followings ------------
@@ -83,14 +99,16 @@ while True:
                         print(text_success(f"post {post.pk} liked"))
                         sleep(randint(60, 65))
                     ############# comment user post
-                    try:
-                        comment = choice(comments)
-                        cl.media_comment(post.pk, comment)
-                    except Exception as e:
-                        print(text_error(f"error to commenting on post {post.pk} :",e))
-                    else:
-                        print(text_success(f"commented={comment} on post {post.pk}"))
-                        sleep(randint(60, 90))
+                    if commenting:
+                        try:
+                            comment = choice(comments)
+                            cl.media_comment(post.pk, comment)
+                        except Exception as e:
+                            print(text_error(f"error to commenting on post {post.pk} :",e))
+                        else:
+                            print(text_success(f"commented={comment} on post {post.pk}"))
+                            sleep(randint(60, 90))
         else:
             print(text_warning(f"no posts found for {text_cyan(user.username)}"))
+    sleep(sleep_after_loop)
 
