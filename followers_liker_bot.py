@@ -66,16 +66,17 @@ else:
 cl.delay_range = [int(input("set delay range num 1:")), int(input("set delay range num 2:"))]  
 
 # set sleep after loop
-sleep_after_loop = hours_to_seconds(int(input("Enter the hours of sleep after the last loop:")))
+sleep_after_loop = hours_to_seconds(int(input(text_warning("Enter the hours of sleep after the last loop:"))))
 
 # set commenting true or false
-if input("Do you want to leave comments on posts? [Default is Y] [Y/N]: ").lower() in ('no', 'n', 'No', 'N', 'NO'):
+if input(text_warning("Do you want to leave comments on posts? [Default is Y] [Y/N]: ")).lower() in ('no', 'n', 'No', 'N', 'NO'):
     commenting = False
 else:
     commenting = True
 
 
 # ------------ foreach to followings ------------
+loop = 0
 while True:
     for user in followings.values():
         user_posts = []
@@ -110,5 +111,7 @@ while True:
                             sleep(randint(60, 90))
         else:
             print(text_warning(f"no posts found for {text_cyan(user.username)}"))
+    loop = loop + 1
+    print(text_warning(f"So far, we've completed {text_blue(f"{loop}")} rounds of the loop and have gotten {text_magenta(f"{sleep_after_loop}")} hours of sleep."))
     sleep(sleep_after_loop)
 
