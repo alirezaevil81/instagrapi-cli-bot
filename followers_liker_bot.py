@@ -79,7 +79,7 @@ else:
 # ------------ foreach to followings ------------
 loop = 0
 while True:
-    for i,user in followings.values():
+    for i,user in enumerate(followings.values()):
         log_print(text_warning(f"Iteration {i + 1}: Processing {user.username}"))
         user_posts = []
         try:
