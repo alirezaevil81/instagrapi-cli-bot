@@ -1,45 +1,15 @@
-from colorama import Fore, Style
-from prettytable import PrettyTable
+from datetime import timedelta
+import datetime
+import time
 
-# all text alert
-
-def text_success(message):
-    return f"{Fore.GREEN}{Style.BRIGHT}[Successful]:{Style.RESET_ALL}{message}"
-
-def text_error(message,exception = ''):
-    return f"{Fore.RED}{Style.BRIGHT}[Error]:{Style.RESET_ALL}{message}{exception}"
-
-def text_warning(message):
-    return f"{Fore.YELLOW}{Style.BRIGHT}[Warning]:{Style.RESET_ALL}{message}"
-
-# all color text
-
-def text_blue(text):
-    return f"{Fore.BLUE}{Style.BRIGHT}{text}{Style.RESET_ALL}"
-
-def text_yellow(text):
-    return f"{Fore.YELLOW}{Style.BRIGHT}{text}{Style.RESET_ALL}"
-
-def text_red(text):
-    return f"{Fore.RED}{Style.BRIGHT}{text}{Style.RESET_ALL}"
-
-def text_cyan(text):
-    return f"{Fore.CYAN}{Style.BRIGHT}{text}{Style.RESET_ALL}"
-
-def text_magenta(text):
-    return f"{Fore.MAGENTA}{Style.BRIGHT}{text}{Style.RESET_ALL}"
-
-def text_green(text):
-    return f"{Fore.GREEN}{Style.BRIGHT}{text}{Style.RESET_ALL}"
+def log_print(*args, **kwargs):
+    iran_offset = 3.5
+    current_time = datetime.datetime.fromtimestamp(time.time() + iran_offset * 3600)
+    formatted_time = current_time.strftime('%Y-%m-%d %H:%M:%S')
+    message = ' '.join(str(arg) for arg in args)
+    formatted_message = f"[{formatted_time}] {message}"
+    print(formatted_message, **kwargs)
 
 
-# table create
-
-def table_creator(headers, rows):
-    table = PrettyTable()
-    table.field_names = headers
-    for row in rows:
-        table.add_row(row)
-    return table
-
-
+def hours_to_seconds(hours):
+    return timedelta(hours=hours).total_seconds()
