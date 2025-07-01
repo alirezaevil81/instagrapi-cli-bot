@@ -88,10 +88,12 @@ while True:
         else:
             log_print(text_success(f"{user.username} posts getted"))
         if user_posts != []:
+            all_not_liked = False
             for i, post in enumerate(user_posts):
                 if post.has_liked:
                     log_print(text_warning(f"post {post.pk} before liked"))
                 else:
+                    all_not_liked = True
                     ############# like user post
                     try:
                         cl.media_like(post.pk)
@@ -99,7 +101,7 @@ while True:
                         log_print(text_error(f"to liking post {post.pk} :",e))
                     else:
                         log_print(text_success(f"post {post.pk} liked"))
-                        sleep(randint(30, 60))
+                        log_sleep(randint(30, 60))
                     ############# comment user post
                     if commenting:
                         try:
@@ -109,8 +111,9 @@ while True:
                             log_print(text_error(f"error to commenting on post {post.pk} :",e))
                         else:
                             log_print(text_success(f"commented={comment} on post {post.pk}"))
-                            sleep(randint(60, 90))
-            sleep(300) 
+                            log_sleep(randint(60, 90))
+            if all_not_liked:
+                log_sleep(300) 
         else:
             log_print(text_warning(f"no posts found for {text_cyan(user.username)}"))
     loop = loop + 1
