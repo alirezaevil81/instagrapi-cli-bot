@@ -114,7 +114,7 @@ while True:
                             log_print(text_success(f"commented={comment} on post {post.pk}"))
                             log_sleep(randint(60, 90))
             if all_not_liked:
-                log_sleep(300) 
+                log_sleep(600) 
         else:
             log_print(text_warning(f"no posts found for {text_cyan(user.username)}"))
     loop = loop + 1
