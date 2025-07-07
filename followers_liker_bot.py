@@ -99,7 +99,7 @@ while True:
                     all_not_liked = True
                     ############# seen user post
                     try:
-                        cl.media_seen(post.pk)
+                        cl.media_seen([post.pk])
                     except Exception as e:
                         log_print(text_error(f"to seen post {post.pk} :",e))
                     else:
