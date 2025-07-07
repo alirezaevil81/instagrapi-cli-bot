@@ -1,4 +1,3 @@
-from datetime import timedelta
 import datetime
 import time
 from bot.color_text import text_green
@@ -10,9 +9,6 @@ def log_print(*args, **kwargs):
     message = ' '.join(str(arg) for arg in args)
     formatted_message = f"[{formatted_time}] {message}"
     print(formatted_message, **kwargs)
-
-def hours_to_seconds(hours):
-    return timedelta(hours=hours).total_seconds()
 
 def log_sleep(arg):
     log_print(f"{text_green(f"{arg} seconds ")}of sleep")

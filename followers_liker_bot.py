@@ -60,11 +60,13 @@ else:
 # ----------- config --------------
 
 # set delay range for requests
-cl.delay_range = [int(input("set delay range num 1:")), int(input("set delay range num 2:"))]  
+cl.delay_range = [int(input("set delay range num 1:")), int(input("set delay range num 2:"))] 
+
+# set sleep after iteration
+sleep_after_iteration = int(input(text_warning("Enter the minutes of sleep after the iteration:")) * 60)
 
 # set sleep after loop
-hours = int(input(text_warning("Enter the hours of sleep after the last loop:")))
-sleep_after_loop = hours_to_seconds(hours)
+sleep_after_loop = int(input(text_warning("Enter the hours of sleep after the last loop:")) * 60 * 60)
 
 # set commenting true or false
 if input(text_warning("Do you want to leave comments on posts? [Default is Y] [Y/N]: ")).lower() in ('no', 'n', 'No', 'N', 'NO'):
@@ -95,6 +97,13 @@ while True:
                     log_print(text_warning(f"post {post.pk} before liked"))
                 else:
                     all_not_liked = True
+                    ############# seen user post
+                    try:
+                        cl.media_seen(post.pk)
+                    except Exception as e:
+                        log_print(text_error(f"to seen post {post.pk} :",e))
+                    else:
+                        log_print(text_success(f"post {post.pk} seen"))
                     ############# like user post
                     try:
                         cl.media_like(post.pk)
@@ -114,7 +123,7 @@ while True:
                             log_print(text_success(f"commented={comment} on post {post.pk}"))
                             log_sleep(randint(60, 90))
             if all_not_liked:
-                log_sleep(600) 
+                log_sleep(sleep_after_iteration) 
         else:
             log_print(text_warning(f"no posts found for {text_cyan(user.username)}"))
     loop = loop + 1
