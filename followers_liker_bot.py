@@ -63,10 +63,10 @@ else:
 cl.delay_range = [int(input("set delay range num 1:")), int(input("set delay range num 2:"))] 
 
 # set sleep after iteration
-sleep_after_iteration = int(input(text_warning("Enter the minutes of sleep after the iteration:")) * 60)
+sleep_after_iteration = int(input(text_warning("Enter the minutes of sleep after the iteration:"))) * 60
 
 # set sleep after loop
-sleep_after_loop = int(input(text_warning("Enter the hours of sleep after the last loop:")) * 60 * 60)
+sleep_after_loop = int(input(text_warning("Enter the hours of sleep after the last loop:"))) * 60 * 60
 
 # set commenting true or false
 if input(text_warning("Do you want to leave comments on posts? [Default is Y] [Y/N]: ")).lower() in ('no', 'n', 'No', 'N', 'NO'):
