@@ -127,6 +127,6 @@ while True:
         else:
             log_print(text_warning(f"no posts found for {text_cyan(user.username)}"))
     loop = loop + 1
-    log_print(text_warning(f"So far, we've completed {text_blue(f"{loop}")} rounds of the loop and have gotten {text_magenta(f"{hours}")} hours of sleep."))
+    log_print(text_warning(f"So far, we've completed {text_blue(f"{loop}")} rounds of the loop and have gotten {text_magenta(f"{sleep_after_loop}")} hours of sleep."))
     sleep(sleep_after_loop)
 
