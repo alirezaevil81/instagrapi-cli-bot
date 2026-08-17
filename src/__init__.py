@@ -1,0 +1,1 @@
+"""Instagram CLI Bot package."""

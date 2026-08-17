@@ -1,3 +1,5 @@
+"""Configuration and default comments for the bot."""
+
 comments = [
     "عالی 😊👍",
     "فوق‌العاده ✨🌟",

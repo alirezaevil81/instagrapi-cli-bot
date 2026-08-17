@@ -1,0 +1,30 @@
+[project]
+name = "instagrapi-cli-bot"
+version = "0.1.0"
+description = "Instagram automation CLI bot for auto-liking following posts, extracting likers, and automated comments"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "instagrapi>=2.18.16",
+    "questionary>=2.0.1",
+    "rich>=13.7.1",
+    "arabic-reshaper>=3.0.0",
+    "python-bidi>=0.4.2",
+]
+
+[project.scripts]
+instabot = "src.main:main"
+followers-bot = "src.bot.followers_liker:main"
+post-likers-bot = "src.bot.post_liker:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+
+
+
+

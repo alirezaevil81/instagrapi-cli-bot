@@ -1,0 +1,11 @@
+{
+  "name": "instagrapi-cli-bot",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "build": "echo 'Ready'",
+    "start": "node server.js"
+  }
+}

@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Instagram CLI Bot — instagrapi-cli-bot</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-hover: #0284c7;
+      --success: #4ade80;
+      --warning: #fbbf24;
+      --pink: #f43f5e;
+      --purple: #c084fc;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Vazirmatn", Tahoma, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 24px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      max-width: 900px;
+      width: 100%;
+    }
+
+    header {
+      text-align: center;
+      padding: 32px 16px;
+      margin-bottom: 24px;
+      background: linear-gradient(180deg, rgba(56, 189, 248, 0.1) 0%, rgba(30, 41, 59, 0) 100%);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+    }
+
+    .badge {
+      display: inline-block;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent);
+      padding: 4px 14px;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 800;
+      color: #ffffff;
+      margin-bottom: 8px;
+    }
+
+    p.subtitle {
+      color: var(--text-muted);
+      font-size: 15px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+      transition: transform 0.15s ease, border-color 0.15s ease;
+    }
+
+    .card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+
+    .card-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .card p {
+      color: var(--text-muted);
+      font-size: 14px;
+      margin-bottom: 14px;
+    }
+
+    .code-block {
+      background: #090d16;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 13px;
+      direction: ltr;
+      text-align: left;
+      color: var(--success);
+      overflow-x: auto;
+      margin-bottom: 8px;
+    }
+
+    .file-tree {
+      background: #090d16;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 13px;
+      direction: ltr;
+      text-align: left;
+      color: var(--accent);
+      margin-bottom: 24px;
+      line-height: 1.8;
+    }
+
+    .features-list {
+      list-style: none;
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .features-list li {
+      padding: 6px 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .features-list li::before {
+      content: "✔";
+      color: var(--success);
+      font-weight: bold;
+    }
+
+    .status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 20px;
+      font-size: 13px;
+      color: var(--text-muted);
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--success);
+      border-radius: 50%;
+      display: inline-block;
+      margin-left: 6px;
+      box-shadow: 0 0 8px var(--success);
+    }
+
+    .tag {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      direction: ltr;
+      display: inline-block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <span class="badge">Python CLI + Questionary & Rich</span>
+      <h1>instagrapi-cli-bot</h1>
+      <p class="subtitle">ربات خط فرمان تعاملی اینستاگرام با فرم‌های هوشمند و خروجی‌های مدرن ترمینال</p>
+    </header>
+
+    <div class="grid">
+      <div class="card">
+        <div class="card-title">
+          <span>👥</span>
+          <span>ربات تعامل با فالووینگ‌ها</span>
+        </div>
+        <p>پیمایش فالووینگ‌ها، مشاهده پست‌ها، لایک خودکار و ارسال کامنت‌های دلخواه با تاخیر زمانی امن.</p>
+        <div class="code-block">uv run followers-bot</div>
+        <ul class="features-list">
+          <li>ورود امن با Password مخفی، تشخیص هوشمند 2FA و سشن کش</li>
+          <li>تنظیم تعاملی تاخیرها با Questionary</li>
+          <li>سیستم لاگینگ پیشرفته Rich Console.log با زمان و مبدأ فایل</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span>🎯</span>
+          <span>ربات استخراج لایک‌کننده‌ها</span>
+        </div>
+        <p>دریافت لینک پست‌های هدف، استخراج لایک‌کننده‌ها، فیلتر حساب‌های خصوصی و تعامل مرحله‌ای.</p>
+        <div class="code-block">uv run post-likers-bot</div>
+        <ul class="features-list">
+          <li>نمایش جدول مدرن کاربران با Rich Table</li>
+          <li>فیلتر خودکار پیج‌های خصوصی و فالووینگ‌ها</li>
+          <li>ذخیره و بازیابی مرحله‌ای با صف Pickle و ثبت لاگ هوشمند</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom: 24px;">
+      <div class="card-title">
+        <span>🪵</span>
+        <span>قابلیت Rich Console.log (ثبت لاگ با زمان، فایل مبدأ و هایلایت نحوی)</span>
+      </div>
+      <p>سیستم لاگ با بهره‌گیری از متد <span class="tag">console.log()</span> کتابخانه Rich، امکانات زیر را به همراه دارد:</p>
+      <ul class="features-list" style="margin-bottom: 12px;">
+        <li>ستون زمان دقیق ثبت هر پیام لاگ (<span class="tag">timestamp column</span>)</li>
+        <li>ستون نام فایل و شماره خط فراخواننده (<span class="tag">file:line column</span> مانند <span class="tag">bot.py:57</span>)</li>
+        <li>هایلایت خودکار ساختارهای پایتون (Syntax Highlighting) برای اعداد، رشته‌ها و وضعیت‌ها</li>
+        <li>چاپ ساخت‌یافته و زیبای کالکشن‌ها (Pretty printing برای dict و list با <span class="tag">log_data</span>)</li>
+      </ul>
+      <div class="code-block">[2026-08-17 10:24:12] [Successful]: Session login successful for @username!   bot.py:57
+[2026-08-17 10:24:15] User 1/15: Checking @target_user                      followers_liker_bot.py:78
+[2026-08-17 10:24:18] 45 seconds of sleep                                   utils.py:25</div>
+    </div>
+
+    <div class="card" style="margin-bottom: 24px;">
+      <div class="card-title">
+        <span>⚡</span>
+        <span>راه‌اندازی آسان و اجرای یکپارچه با src/main.py</span>
+      </div>
+      <p>پروژه دارای فایل استاندارد <span class="tag">pyproject.toml</span> و نقطه ورود یکتای <span class="tag">src/main.py</span> است:</p>
+      <div class="code-block"># ۱. همگام‌سازی و نصب پکیج‌ها با uv:
+uv sync
+
+# ۲. اجرای منوی تعاملی ربات:
+uv run instabot
+# یا: uv run python -m src.main
+
+# (یا با پایتون استاندارد: python -m src.main)</div>
+    </div>
+
+    <div class="card" style="margin-bottom: 24px;">
+      <div class="card-title">
+        <span>📁</span>
+        <span>ساختار خالص فایل‌های پروژه (Pure src-layout)</span>
+      </div>
+      <div class="file-tree">
+├── src/
+│   ├── __init__.py
+│   ├── main.py              # نقطه ورود اصلی و منوی تعاملی ربات‌ها (Interactive CLI Hub)
+│   ├── bot/
+│   │   ├── __init__.py
+│   │   ├── bot.py           # کلاینت لاگین هوشمند، ۲FA و توابع اینستاگرام
+│   │   ├── color_text.py    # مدیریت رنگ‌ها و استایل‌های بومی Rich
+│   │   ├── config.py        # کامنت‌ها و پیام‌های پیش‌فرض
+│   │   └── utils.py         # جدول‌های Rich، لاگر با ساعت ایران و بنرها
+│   ├── followers_liker_bot.py   # منطق ربات تعامل با فالووینگ‌ها
+│   └── post_liker_bot.py        # منطق ربات استخراج لایک‌کننده‌ها
+├── data/
+│   ├── json/            # سشن‌های ذخیره‌شده (Session Cache)
+│   └── pickle/          # صف کاربران هدف ذخیره‌شده
+├── pyproject.toml       # تنظیمات استاندارد PEP 621 و uv
+├── requirements.txt     # لیست پیش‌نیازهای پایتون
+└── README.md
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <div>
+        <span class="status-dot"></span>
+        <span>وضعیت: مجهز به Questionary، Rich، instagrapi 2.18.16 و uv</span>
+      </div>
+      <div style="direction: ltr;">
+        <span class="tag">questionary</span>
+        <span class="tag">rich</span>
+        <span class="tag">instagrapi</span>
+        <span class="tag">uv</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

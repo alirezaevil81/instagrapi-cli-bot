@@ -1,0 +1,8 @@
+{
+  "name": "Instagram CLI Bot",
+  "description": "Instagram automation bot for auto-liking following posts, extracting post likers, and automated comments.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
