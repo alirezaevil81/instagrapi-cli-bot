@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Instagram CLI Bot — Modern Automation Tool</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #05070f;
+      --card-bg: rgba(13, 19, 36, 0.75);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --card-hover-border: rgba(56, 189, 248, 0.4);
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --indigo: #6366f1;
+      --purple: #a855f7;
+      --green: #10b981;
+      --yellow: #f59e0b;
+      --pink: #ec4899;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 48px 20px;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Interactive Background Canvas */
+    #particle-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Ambient dynamic glow orbs */
+    .ambient-glow {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(100px);
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.35;
+      animation: pulseGlow 10s infinite alternate ease-in-out;
+    }
+
+    .glow-1 {
+      top: -150px;
+      left: 15%;
+      width: 550px;
+      height: 550px;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.4) 0%, rgba(99, 102, 241, 0) 70%);
+    }
+
+    .glow-2 {
+      bottom: -100px;
+      right: 10%;
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, rgba(168, 85, 247, 0.35) 0%, rgba(56, 189, 248, 0) 70%);
+      animation-duration: 13s;
+      animation-delay: -4s;
+    }
+
+    @keyframes pulseGlow {
+      0% { transform: scale(1) translate(0, 0); opacity: 0.3; }
+      50% { transform: scale(1.15) translate(30px, 20px); opacity: 0.45; }
+      100% { transform: scale(0.95) translate(-20px, -15px); opacity: 0.25; }
+    }
+
+    .container {
+      max-width: 900px;
+      width: 100%;
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 36px;
+    }
+
+    /* Header & Hero */
+    header {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(56, 189, 248, 0.1);
+      color: var(--accent);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      padding: 6px 16px;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 600;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 4px 20px rgba(56, 189, 248, 0.15);
+      transition: all 0.3s ease;
+    }
+
+    .status-badge:hover {
+      background: rgba(56, 189, 248, 0.18);
+      border-color: rgba(56, 189, 248, 0.4);
+      transform: translateY(-1px);
+    }
+
+    .badge-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--accent);
+      border-radius: 50%;
+      box-shadow: 0 0 10px var(--accent);
+      animation: pulseDot 2s infinite ease-in-out;
+    }
+
+    @keyframes pulseDot {
+      0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 8px var(--accent); }
+      50% { opacity: 0.4; transform: scale(0.75); box-shadow: 0 0 2px var(--accent); }
+    }
+
+    h1 {
+      font-size: clamp(34px, 6vw, 52px);
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      color: #ffffff;
+      line-height: 1.12;
+      background: linear-gradient(135deg, #ffffff 30%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    p.subtitle {
+      color: var(--text-muted);
+      font-size: clamp(15px, 2.5vw, 17px);
+      font-weight: 400;
+      max-width: 520px;
+      line-height: 1.6;
+    }
+
+    /* Terminal Simulation Showcase Window */
+    .terminal-window {
+      width: 100%;
+      background: rgba(10, 15, 29, 0.85);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.05);
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+
+    .terminal-window:hover {
+      border-color: rgba(56, 189, 248, 0.35);
+      box-shadow: 0 32px 64px -12px rgba(0, 0, 0, 0.85), 0 0 30px rgba(56, 189, 248, 0.12);
+    }
+
+    .terminal-header {
+      background: rgba(18, 25, 45, 0.7);
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .dots-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .terminal-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    .terminal-dot:hover { transform: scale(1.2); }
+    .dot-red { background: #ef4444; }
+    .dot-yellow { background: #f59e0b; }
+    .dot-green { background: #10b981; }
+
+    /* Interactive Tab Switcher */
+    .tab-pills {
+      display: flex;
+      background: rgba(0, 0, 0, 0.35);
+      padding: 4px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      gap: 4px;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 6px 14px;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .tab-btn.active {
+      background: rgba(56, 189, 248, 0.18);
+      color: var(--accent);
+      font-weight: 600;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .tab-btn:hover:not(.active) {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .terminal-body {
+      padding: 24px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: clamp(12.5px, 2vw, 14px);
+      line-height: 1.8;
+      color: #e2e8f0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 230px;
+    }
+
+    .term-prompt { color: var(--accent); font-weight: 600; }
+    .term-cyan { color: #38bdf8; }
+    .term-green { color: #34d399; }
+    .term-yellow { color: #fbbf24; }
+    .term-muted { color: #64748b; }
+    .term-active { color: #60a5fa; font-weight: 600; }
+
+    .live-progress {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .progress-bar-wrap {
+      flex: 1;
+      min-width: 140px;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .progress-bar-inner {
+      height: 100%;
+      background: linear-gradient(90deg, #38bdf8, #818cf8);
+      border-radius: 999px;
+      transition: width 0.4s ease;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+    }
+
+    /* 3-Cards Feature Grid */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 18px;
+      width: 100%;
+    }
+
+    .feature-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 16px;
+      padding: 1px;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), transparent 60%);
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(56, 189, 248, 0.4);
+      box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.6), 0 0 20px rgba(56, 189, 248, 0.08);
+    }
+
+    .feature-icon-box {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      color: var(--accent);
+      margin-bottom: 4px;
+      transition: transform 0.3s ease;
+    }
+
+    .feature-card:hover .feature-icon-box {
+      transform: scale(1.1) rotate(4deg);
+      background: rgba(56, 189, 248, 0.2);
+    }
+
+    .feature-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.01em;
+    }
+
+    .feature-desc {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    /* Enhanced Launcher & Code Box */
+    .quick-launcher {
+      width: 100%;
+      background: rgba(14, 20, 38, 0.85);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.6);
+      transition: border-color 0.3s;
+    }
+
+    .quick-launcher:hover {
+      border-color: rgba(56, 189, 248, 0.3);
+    }
+
+    .launcher-header {
+      background: rgba(20, 28, 50, 0.8);
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .launcher-title-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .launcher-title-group span.title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .launcher-tag {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--green);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    .env-pills {
+      display: flex;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 3px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      gap: 4px;
+    }
+
+    .env-btn {
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .env-btn.active {
+      background: rgba(56, 189, 248, 0.2);
+      color: var(--accent);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .env-btn:hover:not(.active) {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .launcher-body {
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .code-block-container {
+      background: #080c18;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 12px;
+      padding: 16px;
+      position: relative;
+      overflow-x: auto;
+    }
+
+    .code-lines {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13.5px;
+      line-height: 1.8;
+      color: #e2e8f0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .code-line {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .code-line .line-num {
+      color: #475569;
+      user-select: none;
+      font-size: 12px;
+      min-width: 18px;
+      text-align: right;
+    }
+
+    .code-line .cmd-text {
+      color: #38bdf8;
+      word-break: break-all;
+    }
+
+    .code-line .cmd-comment {
+      color: #64748b;
+      font-style: italic;
+    }
+
+    .launcher-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding-top: 4px;
+    }
+
+    .env-info-pill {
+      font-size: 12.5px;
+      color: #94a3b8;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .actions-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn-action {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: 10px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      text-decoration: none;
+      min-height: 40px;
+    }
+
+    .btn-copy {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #f8fafc;
+    }
+
+    .btn-copy:hover {
+      background: rgba(255, 255, 255, 0.16);
+      border-color: rgba(255, 255, 255, 0.3);
+      transform: translateY(-1px);
+    }
+
+    .btn-github {
+      background: linear-gradient(135deg, #1e293b, #0f172a);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #ffffff;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+    }
+
+    .btn-github:hover {
+      background: var(--accent);
+      color: #05070f;
+      border-color: var(--accent);
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.4);
+      transform: translateY(-1px);
+    }
+
+    /* Minimal Responsive Footer */
+    footer {
+      font-size: 13.5px;
+      color: #64748b;
+      text-align: center;
+      margin-top: 8px;
+    }
+
+    footer a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+      transition: color 0.2s;
+    }
+
+    footer a:hover {
+      color: #7dd3fc;
+      text-decoration: underline;
+    }
+
+    /* Mobile Responsive Optimizations */
+    @media (max-width: 640px) {
+      body {
+        padding: 32px 14px;
+      }
+      .container {
+        gap: 24px;
+      }
+      .terminal-header, .launcher-header {
+        padding: 12px 14px;
+      }
+      .terminal-body, .launcher-body {
+        padding: 16px 14px;
+      }
+      .launcher-footer {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .actions-group {
+        justify-content: stretch;
+      }
+      .btn-action {
+        flex: 1;
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Particle Background -->
+  <canvas id="particle-canvas"></canvas>
+
+  <!-- Ambient Glow Orbs -->
+  <div class="ambient-glow glow-1"></div>
+  <div class="ambient-glow glow-2"></div>
+
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <div class="status-badge">
+        <span class="badge-dot"></span>
+        Instagram Automation Suite v2.0
+      </div>
+      <h1>Instagram CLI Bot</h1>
+      <p class="subtitle">A sleek, interactive, and modular automation engine crafted for safety and smooth execution.</p>
+    </header>
+
+    <!-- Interactive Terminal Showcase Window -->
+    <div class="terminal-window">
+      <div class="terminal-header">
+        <div class="dots-wrapper">
+          <span class="terminal-dot dot-red" title="Close"></span>
+          <span class="terminal-dot dot-yellow" title="Minimize"></span>
+          <span class="terminal-dot dot-green" title="Expand"></span>
+        </div>
+        <div class="tab-pills">
+          <button class="tab-btn active" id="tab-followers" onclick="switchTab('followers')">
+            <span>👥</span> Following Bot
+          </button>
+          <button class="tab-btn" id="tab-likers" onclick="switchTab('likers')">
+            <span>🎯</span> Post Likers Bot
+          </button>
+        </div>
+      </div>
+
+      <div class="terminal-body" id="terminal-content">
+        <!-- Dynamically injected via JavaScript -->
+      </div>
+    </div>
+
+    <!-- 3 Core Feature Cards -->
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon-box">⚡</div>
+        <div class="feature-title">Interactive Terminal</div>
+        <div class="feature-desc">Arrow-key menus, hidden passwords, and intelligent 2FA verification.</div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon-box">🛡️</div>
+        <div class="feature-title">Safe & Throttled</div>
+        <div class="feature-desc">Dynamic animated timers and randomized cooldown intervals.</div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon-box">📱</div>
+        <div class="feature-title">Cross-Platform</div>
+        <div class="feature-desc">Optimized for Windows, macOS, Linux, and Android Termux.</div>
+      </div>
+    </div>
+
+    <!-- Enhanced Quick Launcher Box -->
+    <div class="quick-launcher">
+      <div class="launcher-header">
+        <div class="launcher-title-group">
+          <span class="title">🚀 Quick Start Guide</span>
+          <span class="launcher-tag" id="env-tag">Recommended</span>
+        </div>
+        <div class="env-pills">
+          <button class="env-btn active" id="env-uv" onclick="switchEnv('uv')">
+            <span>⚡</span> uv
+          </button>
+          <button class="env-btn" id="env-pip" onclick="switchEnv('pip')">
+            <span>📦</span> pip
+          </button>
+          <button class="env-btn" id="env-termux" onclick="switchEnv('termux')">
+            <span>📱</span> Termux
+          </button>
+        </div>
+      </div>
+
+      <div class="launcher-body">
+        <div class="code-block-container">
+          <div class="code-lines" id="code-display">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <div class="launcher-footer">
+          <div class="env-info-pill" id="env-info">
+            <span>💡</span> Requires Python 3.10+ • Synchronizes all dependencies automatically
+          </div>
+          <div class="actions-group">
+            <button class="btn-action btn-copy" id="copy-btn" onclick="copyActiveScript()">
+              <span id="copy-icon">📋</span> <span id="copy-label">Copy Commands</span>
+            </button>
+            <a href="https://github.com/alirezaevil81/instagrapi-cli-bot" target="_blank" rel="noopener noreferrer" class="btn-action btn-github">
+              GitHub ↗
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+      Crafted with precision by <a href="https://github.com/alirezaevil81" target="_blank">alirezaevil81</a>
+    </footer>
+  </div>
+
+  <script>
+    // Particle background animation
+    const canvas = document.getElementById('particle-canvas');
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    class Particle {
+      constructor() {
+        this.x = Math.random() * canvas.width;
+        this.y = Math.random() * canvas.height;
+        this.vx = (Math.random() - 0.5) * 0.4;
+        this.vy = (Math.random() - 0.5) * 0.4;
+        this.radius = Math.random() * 1.5 + 0.8;
+      }
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
+        if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
+      }
+      draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.4)';
+        ctx.fill();
+      }
+    }
+
+    function initParticles() {
+      const count = Math.min(Math.floor(window.innerWidth / 20), 45);
+      particles = [];
+      for (let i = 0; i < count; i++) {
+        particles.push(new Particle());
+      }
+    }
+    initParticles();
+
+    function animateParticles() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (let i = 0; i < particles.length; i++) {
+        particles[i].update();
+        particles[i].draw();
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = particles[i].x - particles[j].x;
+          const dy = particles[i].y - particles[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 110) {
+            ctx.beginPath();
+            ctx.strokeStyle = `rgba(56, 189, 248, ${0.12 * (1 - dist / 110)})`;
+            ctx.lineWidth = 0.8;
+            ctx.moveTo(particles[i].x, particles[i].y);
+            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.stroke();
+          }
+        }
+      }
+      requestAnimationFrame(animateParticles);
+    }
+    animateParticles();
+
+    // Terminal Mode & Live Loop Simulation
+    const SPINNERS = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+    let spinnerIdx = 0;
+    let secondsLeft = 45;
+    const TOTAL_SECONDS = 60;
+    let currentBotMode = 'followers';
+
+    function renderTerminal() {
+      const sp = SPINNERS[spinnerIdx % SPINNERS.length];
+      const pct = Math.round(((TOTAL_SECONDS - secondsLeft) / TOTAL_SECONDS) * 100);
+
+      const el = document.getElementById('terminal-content');
+      if (!el) return;
+
+      if (currentBotMode === 'followers') {
+        el.innerHTML = `
+          <div><span class="term-prompt">$</span> uv run instabot</div>
+          <div class="term-cyan">? Select the bot you want to run:</div>
+          <div class="term-active">&gt; 👥 Following Engagement Bot (لایک و کامنت هوشمند فالووینگ‌ها)</div>
+          <div class="term-muted">&nbsp;&nbsp;🎯 Post Likers Bot (استخراج و تعامل با لایک‌کننده‌های پست هدف)</div>
+          <div class="term-muted">&nbsp;&nbsp;🚪 Exit (خروج)</div>
+          <div style="margin-top: 6px;"><span class="term-green">✔</span> Session authenticated for <span class="term-cyan">@user_account</span> [2FA Verified]</div>
+          <div><span class="term-cyan">[18:24:05]</span> Liked post <span class="term-active">#Cx89aK1</span> by <span class="term-cyan">@friend_profile</span> ❤️</div>
+          <div class="live-progress">
+            <span class="term-yellow">${sp}</span>
+            <span>Safety cooldown:</span>
+            <span class="term-green" style="font-weight:600;">${secondsLeft}s remaining</span>
+            <div class="progress-bar-wrap">
+              <div class="progress-bar-inner" style="width: ${pct}%"></div>
+            </div>
+            <span class="term-muted">${pct}%</span>
+          </div>
+        `;
+      } else {
+        el.innerHTML = `
+          <div><span class="term-prompt">$</span> uv run post-likers-bot</div>
+          <div class="term-cyan">? Enter Target Instagram Post URL:</div>
+          <div class="term-active">&gt; https://www.instagram.com/p/DB123456789/</div>
+          <div style="margin-top: 6px;"><span class="term-green">✔</span> Extracted <span class="term-cyan">148 likers</span> (Filtered out 42 private & followed accounts)</div>
+          <div><span class="term-cyan">[18:24:10]</span> Inspecting <span class="term-cyan">@target_user_01</span> (Public • 12 posts)</div>
+          <div><span class="term-green">✔</span> Liked 3 recent media posts 👍</div>
+          <div class="live-progress">
+            <span class="term-yellow">${sp}</span>
+            <span>User cooldown:</span>
+            <span class="term-green" style="font-weight:600;">${secondsLeft}s remaining</span>
+            <div class="progress-bar-wrap">
+              <div class="progress-bar-inner" style="width: ${pct}%"></div>
+            </div>
+            <span class="term-muted">${pct}%</span>
+          </div>
+        `;
+      }
+    }
+
+    function switchTab(mode) {
+      currentBotMode = mode;
+      document.getElementById('tab-followers')?.classList.toggle('active', mode === 'followers');
+      document.getElementById('tab-likers')?.classList.toggle('active', mode === 'likers');
+      renderTerminal();
+    }
+
+    setInterval(() => {
+      spinnerIdx++;
+      secondsLeft--;
+      if (secondsLeft <= 0) {
+        secondsLeft = TOTAL_SECONDS;
+      }
+      renderTerminal();
+    }, 1000);
+    renderTerminal();
+
+    // Multi-line environment command configurations
+    const ENV_CONFIGS = {
+      uv: {
+        tag: 'Recommended • Fast',
+        info: '💡 Astral uv handles virtualenv creation, package resolution & execution automatically.',
+        lines: [
+          { comment: '# 1. Clone repository' },
+          { cmd: 'git clone https://github.com/alirezaevil81/instagrapi-cli-bot.git' },
+          { cmd: 'cd instagrapi-cli-bot' },
+          { comment: '# 2. Sync dependencies & launch' },
+          { cmd: 'uv sync' },
+          { cmd: 'uv run instabot' }
+        ]
+      },
+      pip: {
+        tag: 'Standard Virtualenv',
+        info: '💡 Standard Python setup with venv isolation on Windows, Linux, or macOS.',
+        lines: [
+          { comment: '# 1. Clone repository & enter directory' },
+          { cmd: 'git clone https://github.com/alirezaevil81/instagrapi-cli-bot.git && cd instagrapi-cli-bot' },
+          { comment: '# 2. Create and activate virtual environment' },
+          { cmd: 'python -m venv .venv && source .venv/bin/activate' },
+          { comment: '# 3. Install packages & run' },
+          { cmd: 'pip install -r requirements.txt' },
+          { cmd: 'python src/main.py' }
+        ]
+      },
+      termux: {
+        tag: 'Android 24/7 Setup',
+        info: '💡 Includes pre-compiled pydantic-core wheel (no local Rust compiler required on Android).',
+        lines: [
+          { comment: '# 1. Install prerequisites & clone' },
+          { cmd: 'pkg install python git clang binutils libjpeg-turbo zlib freetype libffi openssl -y' },
+          { cmd: 'git clone https://github.com/alirezaevil81/instagrapi-cli-bot.git && cd instagrapi-cli-bot' },
+          { comment: '# 2. Setup venv & install pre-compiled wheel' },
+          { cmd: 'python -m venv .venv && source .venv/bin/activate' },
+          { cmd: 'pip install pydantic-core --extra-index-url https://eutalix.github.io/android-pydantic-core/' },
+          { cmd: 'pip install -r requirements.txt && python src/main.py' }
+        ]
+      }
+    };
+
+    let activeEnv = 'uv';
+
+    function renderLauncher() {
+      const cfg = ENV_CONFIGS[activeEnv];
+      if (!cfg) return;
+
+      document.getElementById('env-tag').innerText = cfg.tag;
+      document.getElementById('env-info').innerHTML = `<span>💡</span> ${cfg.info}`;
+
+      const codeContainer = document.getElementById('code-display');
+      if (!codeContainer) return;
+
+      let lineNum = 1;
+      let html = '';
+
+      cfg.lines.forEach(item => {
+        if (item.comment) {
+          html += `
+            <div class="code-line">
+              <span class="line-num">#</span>
+              <span class="cmd-comment">${item.comment}</span>
+            </div>
+          `;
+        } else if (item.cmd) {
+          html += `
+            <div class="code-line">
+              <span class="line-num">${lineNum++}</span>
+              <span class="cmd-text">${item.cmd}</span>
+            </div>
+          `;
+        }
+      });
+
+      codeContainer.innerHTML = html;
+    }
+
+    function switchEnv(env) {
+      activeEnv = env;
+      ['uv', 'pip', 'termux'].forEach(e => {
+        document.getElementById(`env-${e}`)?.classList.toggle('active', e === env);
+      });
+      renderLauncher();
+    }
+
+    function copyActiveScript() {
+      const cfg = ENV_CONFIGS[activeEnv];
+      if (!cfg) return;
+
+      const rawCommands = cfg.lines
+        .filter(item => item.cmd)
+        .map(item => item.cmd)
+        .join('\n');
+
+      navigator.clipboard.writeText(rawCommands).then(() => {
+        const icon = document.getElementById('copy-icon');
+        const label = document.getElementById('copy-label');
+        if (icon && label) {
+          icon.innerText = '✓';
+          label.innerText = 'Copied!';
+          setTimeout(() => {
+            icon.innerText = '📋';
+            label.innerText = 'Copy Commands';
+          }, 2000);
+        }
+      });
+    }
+
+    // Initial render
+    renderLauncher();
+  </script>
+</body>
+</html>
