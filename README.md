@@ -1,101 +1,127 @@
-# Instagram CLI Bot 🤖 (instagrapi-cli-bot)
+<div align="center">
 
-ربات خط فرمان مدرن و تعاملی اینستاگرام با استفاده از **`instagrapi`**، رابط کاربری پرسش‌وپاسخ **`questionary`** و خروجی‌های زیبای ترمینال **`rich`**.
+# 🤖 Instagram CLI Bot
+
+**A sleek, modular, and interactive Instagram automation tool powered by `instagrapi` & `rich`.**
+
+[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
+[![uv](https://img.shields.io/badge/uv-Astral-DE5FE9?style=flat-square&logo=astral&logoColor=white)](https://docs.astral.sh/uv/)
+[![Rich](https://img.shields.io/badge/Terminal-Rich%20%7C%20Questionary-00A896?style=flat-square)](https://rich.readthedocs.io/)
+[![Platform](https://img.shields.io/badge/OS-Windows%20%7C%20Linux%20%7C%20Android-green?style=flat-square)]()
+[![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
+
+[Quick Start](#-quick-start) • [Features](#-features) • [Android (Termux)](#-android--termux) • [Configuration](#-configuration)
+
+</div>
 
 ---
 
-## 🚀 نصب و راه‌اندازی با `uv` (پیشنهادی و پرسرعت)
+## ⚡ Quick Start
 
-اگر از ابزار مدرن **[uv](https://docs.astral.sh/uv/)** استفاده می‌کنید:
-
-### ۱. همگام‌سازی محیط مجازی و پکیج‌ها:
+### 1. With `uv` *(Recommended)*
 ```bash
+git clone https://github.com/alirezaevil81/instagrapi-cli-bot.git
+cd instagrapi-cli-bot
+
 uv sync
-```
-*(یا ساخت venv و نصب با pip اختصاصی: `uv venv && uv pip install -r requirements.txt`)*
-
-### ۲. اجرای مستقیم بات (Pure `src-layout`):
-```bash
-# روش اول (پیشنهادی با uv):
 uv run instabot
-# یا:
-uv run python -m src.main
-
-# روش دوم (با پایتون استاندارد):
-python -m src.main
 ```
 
-همچنین می‌توانید مستقیماً بات مورد نظر را با پارامتر خط فرمان فراخوانی کنید:
+### 2. With `pip`
 ```bash
-python -m src.main followers      # اجرای مستقیم ربات فالووینگ‌ها
-python -m src.main post-likers    # اجرای مستقیم ربات استخراج لایک‌کننده‌ها
-# یا با دستورات اختصاصی uv:
-uv run followers-bot
-uv run post-likers-bot
-```
+git clone https://github.com/alirezaevil81/instagrapi-cli-bot.git
+cd instagrapi-cli-bot
 
----
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
-## 📦 نصب با pip سنتی
-
-```bash
 pip install -r requirements.txt
+python src/main.py
 ```
-
-> **نکته:** این پروژه به پایتون نسخه 3.10 یا بالاتر نیاز دارد.
 
 ---
 
-## 💎 ویژگی‌های جدید با `questionary` و `rich`
+## ✨ Features
 
-- **منوی تعاملی و یکپارچه در `main.py`**:
-  - انتخاب سریع بین ربات فالووینگ‌ها، ربات لایک‌کننده‌ها یا خروج
-- **فرم‌های ورودی تعاملی و زیبا (`questionary`)**:
-  - فیلد رمزشده برای Password (بدون نمایش کاراکترها در ترمینال)
-  - بررسی هوشمند نیاز به کد دو مرحله‌ای (2FA) و دریافت خودکار در صورت نیاز
-  - تاییدیه‌های جذاب Y/N برای استفاده از سشن ذخیره‌شده یا صف کاربران
-  - ولیدیشن و اعتبارسنجی ورودی‌ها در لحظه
-- **خروجی‌های چشم‌نواز ترمینال (`rich`)**:
-  - جداول منظم و تفکیک‌شده برای لیست کاربران هدف و وضعیت حساب‌ها
-  - بنرهای زیبا و پنل‌های راهنما
-  - استاتوس‌بارهای متحرک لودینگ هنگام واکشی لایک‌کننده‌ها و فالووینگ‌ها
+- **Interactive Session Picker**: Switch between saved sessions (`data/json/`) via arrow keys, or add new accounts.
+- **Smart 2FA & Masked Passwords**: Native handling for Two-Factor Authentication (SMS / Authenticator / Backup codes).
+- **Dynamic Live Timers**: Animated spinners, progress bars, and real-time second countdowns during safety cooldowns.
+- **Following Engagement**: Automatically track and interact with your following list's newest posts.
+- **Target Post Likers**: Extract likers from target posts with automatic privacy and already-following filters.
+- **Persian & RTL Reshaping**: Integrated bidirectional text rendering for smooth terminal typography.
 
 ---
 
-## 📂 ساختار پوشه‌بندی و معماری پروژه
+## 📱 Android / Termux
 
+Run the bot directly on your Android device:
+
+```bash
+# 1. Install prerequisites
+pkg update -y && pkg install python git clang binutils libjpeg-turbo zlib freetype libffi openssl -y
+
+# 2. Clone repository & enter directory
+git clone https://github.com/alirezaevil81/instagrapi-cli-bot.git
+cd instagrapi-cli-bot
+
+# 3. Create venv & install pre-compiled pydantic-core (No Rust compilation needed)
+python -m venv .venv
+source .venv/bin/activate
+pip install pydantic-core --extra-index-url https://eutalix.github.io/android-pydantic-core/
+pip install -r requirements.txt
+
+# 4. Start the bot
+python src/main.py
 ```
+
+> **💡 Background Mode:** Run `termux-wake-lock` to prevent Android from sleeping while the bot is active.
+
+---
+
+## ⚙️ Configuration
+
+Custom parameters available before starting any task:
+
+| Setting | Default | Description |
+| :--- | :---: | :--- |
+| **Like Delay** | `30s` – `60s` | Random cooldown interval after liking a post |
+| **Comment Delay** | `60s` – `90s` | Random interval between posting comments |
+| **Posts Per User** | `3` – `4` | Number of recent public media items to inspect |
+| **User Cooldown** | `2 min` | Rest period after completing engagement with an account |
+| **Cycle Cooldown** | `1 hour` | Rest duration after processing the entire queue |
+| **API Request Delay** | `3s` – `7s` | Base delay between general Instagram API queries |
+
+---
+
+<details>
+<summary><b>📂 Project Structure</b> (Click to expand)</summary>
+
+```text
+instagrapi-cli-bot/
 ├── src/
-│   ├── __init__.py
-│   ├── main.py                  # نقطه ورود اصلی و منوی تعاملی ربات‌ها (Interactive CLI Hub)
-│   └── bot/                     # هسته ماژولار ربات و پردازش‌ها
-│       ├── __init__.py          # اکسپورت تمیز ماژول‌ها و توابع اجرا
-│       ├── bot.py               # کلاس اصلی کلاینت، لاگین هوشمند و متدهای اینستاگرام
-│       ├── followers_liker.py   # ربات هوشمند تعامل و لایک پست‌های فالووینگ‌ها
-│       ├── post_liker.py        # ربات استخراج لایک‌کننده‌های پست و تعامل هدفمند
-│       ├── config.py            # تنظیمات و کامنت‌های پیش‌فرض
-│       └── utils.py             # ابزارهای Rich، جداول، بنرها و سازگاری زبان فارسی
+│   ├── main.py                  # CLI Hub entry point
+│   └── bot/
+│       ├── bot.py               # Instagram client & 2FA login
+│       ├── followers_liker.py   # Following engagement bot
+│       ├── post_liker.py        # Post likers extraction bot
+│       ├── config.py            # Default comments & configs
+│       └── utils.py             # Rich timers, banners & RTL tools
 ├── data/
-│   ├── json/                    # سشن‌های ذخیره‌شده کاربران
-│   └── pickle/                  # صف کاربران هدف ذخیره‌شده
-├── pyproject.toml               # تنظیمات وابستگی‌ها با استانداردهای uv و PEP 621
-├── requirements.txt             # لیست پکیج‌های پایتون
-└── LICENSE
+│   ├── json/                    # Saved account sessions
+│   └── pickle/                  # Saved user queues
+├── pyproject.toml               # Modern build configuration
+└── requirements.txt             # Pip dependencies
 ```
+</details>
 
 ---
 
-## ⚙️ نحوه کارکرد ربات‌ها از طریق منوی `src/main.py`
+## ⚠️ Disclaimer
 
-پس از اجرای `uv run instabot` یا `python -m src.main`، منوی گزینه‌ها ظاهر می‌شود:
+This tool is intended for **educational and personal automation purposes**. Please comply with Instagram's Terms of Service and utilize realistic, safe delay intervals.
 
-### ۱. گزینه `Following Engagement Bot`:
-- دریافت تعاملی نام کاربری و رمزعبور با تشخیص هوشمند ۲FA
-- تنظیم بازه‌های تاخیر و زمان استراحت با پرامپت‌های هوشمند
-- لایک و کامنت خودکار روی پست‌های فالووینگ‌ها با ثبت ساعت محلی ایران
+---
 
-### ۲. گزینه `Post Likers Bot`:
-- دریافت لینک پست‌ها و استخراج کاربران لایک‌کننده
-- فیلتر خودکار پیج‌های خصوصی و کاربرانی که از قبل فالو دارید
-- نمایش جدول زیبا از کاربران با **Rich Tables**
-- لایک و تعامل ایمن با ذخیره وضعیت صف در فایل pickle
+<div align="center">
+<sub>Built with precision by <a href="https://github.com/alirezaevil81">alirezaevil81</a></sub>
+</div>
