@@ -968,12 +968,14 @@
       },
       termux: {
         tag: 'Android 24/7 Setup',
-        info: '💡 Includes pre-compiled pydantic-core wheel (no local Rust compiler required on Android).',
+        info: '💡 Includes export ANDROID_API_LEVEL and pre-compiled pydantic-core wheel for seamless execution on Android.',
         lines: [
-          { comment: '# 1. Install prerequisites & clone' },
+          { comment: '# 1. Install prerequisites & export Android API level' },
           { cmd: 'pkg install python git clang binutils libjpeg-turbo zlib freetype libffi openssl -y' },
+          { cmd: 'export ANDROID_API_LEVEL="$(getprop ro.build.version.sdk)"' },
+          { comment: '# 2. Clone repository & enter directory' },
           { cmd: 'git clone https://github.com/alirezaevil81/instagrapi-cli-bot.git && cd instagrapi-cli-bot' },
-          { comment: '# 2. Setup venv & install pre-compiled wheel' },
+          { comment: '# 3. Setup venv & install pre-compiled wheel' },
           { cmd: 'python -m venv .venv && source .venv/bin/activate' },
           { cmd: 'pip install pydantic-core --extra-index-url https://eutalix.github.io/android-pydantic-core/' },
           { cmd: 'pip install . && python src/main.py' }
