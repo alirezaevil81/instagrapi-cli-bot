@@ -205,6 +205,9 @@ __marimo__/
 # AGENTS
 AGENTS.md
 
-
-
-
+# Web Preview & Platform files
+index.html
+metadata.json
+package.json
+server.js
+uv.lock
