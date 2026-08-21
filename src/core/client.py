@@ -33,7 +33,6 @@ from src.core.exceptions import (
 import questionary
 from src.config import comments, SESSIONS_DIR, ensure_storage_directories
 from src.database.repository import record_interaction
-from src.core.device import setup_client_device
 from src.utils.console import (
     log_print,
     log_sleep,
@@ -145,7 +144,6 @@ class Bot(Client):
                         continue
 
                     username = uname_for_sid.strip().lower()
-                    setup_client_device(self, username, session_loaded=False)
                     try:
                         self.login_by_sessionid(sessionid_val.strip())
                         self.get_timeline_feed()
@@ -203,7 +201,6 @@ class Bot(Client):
                         log_warning("Login canceled.")
                         continue
                     username = uname_for_sid.strip().lower()
-                    setup_client_device(self, username, session_loaded=False)
                     try:
                         self.login_by_sessionid(sessionid_val.strip())
                         self.get_timeline_feed()
@@ -242,7 +239,6 @@ class Bot(Client):
             if login_via_session:
                 try:
                     self.load_settings(session_path)
-                    setup_client_device(self, username, session_loaded=True)
                     self.username = username
                     self.get_timeline_feed()
                 except (LoginRequired, ClientLoginRequired):
@@ -265,9 +261,6 @@ class Bot(Client):
                 if not password:
                     log_warning("Login canceled by user.")
                     continue
-
-                # Apply persistent device fingerprint or real Termux device properties
-                setup_client_device(self, username, session_loaded=False)
 
                 try:
                     # Attempt standard login
