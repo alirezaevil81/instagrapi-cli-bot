@@ -62,17 +62,20 @@ Run the bot directly on your Android device:
 # 1. Install prerequisites
 pkg update -y && pkg install python git clang binutils libjpeg-turbo zlib freetype libffi openssl -y
 
-# 2. Clone repository & enter directory
+# 2. Export Android API Level (Critical for Termux build/runtime compatibility)
+export ANDROID_API_LEVEL="$(getprop ro.build.version.sdk)"
+
+# 3. Clone repository & enter directory
 git clone https://github.com/alirezaevil81/instagrapi-cli-bot.git
 cd instagrapi-cli-bot
 
-# 3. Create venv & install pre-compiled pydantic-core (No Rust compilation needed)
+# 4. Create venv & install pre-compiled pydantic-core (No Rust compilation needed)
 python -m venv .venv
 source .venv/bin/activate
 pip install pydantic-core --extra-index-url https://eutalix.github.io/android-pydantic-core/
 pip install .
 
-# 4. Start the bot
+# 5. Start the bot
 python src/main.py
 ```
 
