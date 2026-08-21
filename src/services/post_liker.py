@@ -141,7 +141,7 @@ def main():
 
         # Save extracted target users into SQLite database
         saved_count = save_target_users_queue(users, clear_existing=True)
-        log_success(f"Saved [bold cyan]{saved_count}[/bold cyan] target public users to SQLite database ({cl.get_session_path('')}) :floppy_disk:")
+        log_success(f"Saved [bold cyan]{saved_count}[/bold cyan] target public users to SQLite database :floppy_disk:")
 
     # ----------------- Display Target Users Table -----------------
     if users:

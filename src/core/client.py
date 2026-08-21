@@ -62,6 +62,9 @@ class Bot(Client):
         self.comment_delay_range = [60, 90]
         self.posts_per_user = 3
         self.challenge_code_handler = default_challenge_code_handler
+        # Ensure bloks_versioning_id is never empty to prevent CAA/Bloks hash errors
+        if not getattr(self, "bloks_versioning_id", None):
+            self.bloks_versioning_id = "ce555e5500576acd8e84a66018f54a05720f2dce29f0bb5a1f97f0c10d6fac48"
 
     def get_saved_sessions(self) -> list:
         """Returns a sorted list of saved session usernames from storage/sessions/."""
@@ -99,6 +102,12 @@ class Bot(Client):
                 ]
                 choices.append(
                     questionary.Choice(
+                        title=f"🔑 {fix_persian('ورود با کوکی / SessionID')} (Login via SessionID)",
+                        value="__sessionid__"
+                    )
+                )
+                choices.append(
+                    questionary.Choice(
                         title=f"➕ {fix_persian('ورود با اکانت جدید')} (Login with new account)",
                         value="__new__"
                     )
@@ -118,6 +127,39 @@ class Bot(Client):
                 if not selected or selected == "__exit__":
                     log_warning("Exiting login flow.")
                     break
+                elif selected == "__sessionid__":
+                    sessionid_val = questionary.password(
+                        "Paste your Instagram SessionID cookie value:",
+                        validate=lambda val: True if len(val.strip()) > 0 else "SessionID cannot be empty"
+                    ).ask()
+                    if not sessionid_val:
+                        log_warning("SessionID login canceled.")
+                        continue
+
+                    uname_for_sid = questionary.text(
+                        "Enter the Username for this SessionID:",
+                        validate=lambda val: True if len(val.strip()) > 0 else "Username cannot be empty"
+                    ).ask()
+                    if not uname_for_sid:
+                        log_warning("Login canceled.")
+                        continue
+
+                    username = uname_for_sid.strip().lower()
+                    setup_client_device(self, username, session_loaded=False)
+                    try:
+                        self.login_by_sessionid(sessionid_val.strip())
+                        self.get_timeline_feed()
+                    except Exception as se:
+                        log_error("Failed to login via SessionID: ", str(se))
+                        continue
+                    else:
+                        session_path = self.get_session_path(username)
+                        self.dump_settings(session_path)
+                        log_success(f"Logged in successfully via SessionID: @[bold cyan]{username}[/bold cyan] :key:")
+                        log_success(f"Session saved to [bold green]{session_path}[/bold green] :floppy_disk:")
+                        login = True
+                        break
+
                 elif selected == "__new__":
                     username = questionary.text(
                         "Enter your Instagram Username:",
@@ -132,6 +174,50 @@ class Bot(Client):
                     username = selected.strip()
                     login_via_session = True
             else:
+                login_method = questionary.select(
+                    "Select login method:",
+                    choices=[
+                        questionary.Choice(title=f"👤 {fix_persian('ورود با نام‌کاربری و رمز عبور')} (Username & Password)", value="password"),
+                        questionary.Choice(title=f"🔑 {fix_persian('ورود مستقیم با SessionID')} (SessionID Cookie)", value="sessionid"),
+                        questionary.Choice(title=f"🚪 {fix_persian('خروج')} (Exit)", value="exit"),
+                    ]
+                ).ask()
+
+                if not login_method or login_method == "exit":
+                    log_warning("Exiting login flow.")
+                    break
+
+                if login_method == "sessionid":
+                    sessionid_val = questionary.password(
+                        "Paste your Instagram SessionID cookie value:",
+                        validate=lambda val: True if len(val.strip()) > 0 else "SessionID cannot be empty"
+                    ).ask()
+                    if not sessionid_val:
+                        log_warning("Login canceled.")
+                        continue
+                    uname_for_sid = questionary.text(
+                        "Enter your Instagram Username:",
+                        validate=lambda val: True if len(val.strip()) > 0 else "Username cannot be empty"
+                    ).ask()
+                    if not uname_for_sid:
+                        log_warning("Login canceled.")
+                        continue
+                    username = uname_for_sid.strip().lower()
+                    setup_client_device(self, username, session_loaded=False)
+                    try:
+                        self.login_by_sessionid(sessionid_val.strip())
+                        self.get_timeline_feed()
+                    except Exception as se:
+                        log_error("Failed to login via SessionID: ", str(se))
+                        continue
+                    else:
+                        session_path = self.get_session_path(username)
+                        self.dump_settings(session_path)
+                        log_success(f"Logged in successfully via SessionID: @[bold cyan]{username}[/bold cyan] :key:")
+                        log_success(f"Session saved to [bold green]{session_path}[/bold green] :floppy_disk:")
+                        login = True
+                        break
+
                 username = questionary.text(
                     "Enter your Instagram Username:",
                     validate=lambda val: True if len(val.strip()) > 0 else "Username cannot be empty"
@@ -157,7 +243,7 @@ class Bot(Client):
                 try:
                     self.load_settings(session_path)
                     setup_client_device(self, username, session_loaded=True)
-                    self.login(username, '1234')
+                    self.username = username
                     self.get_timeline_feed()
                 except (LoginRequired, ClientLoginRequired):
                     log_error("Session is invalid or expired. Re-authenticating...")
@@ -198,7 +284,8 @@ class Bot(Client):
                         continue
 
                     try:
-                        self.two_factor_login(two_factor_code.strip())
+                        # In instagrapi, 2FA code is passed via verification_code to login method
+                        self.login(username=username, password=password, verification_code=two_factor_code.strip())
                     except Exception as e:
                         log_error("2FA Verification failed: ", str(e))
                         continue
@@ -245,6 +332,7 @@ class Bot(Client):
                     log_error(f"Unexpected error during login for @{username}: ", str(e))
                     continue
 
+                self.username = username
                 log_success(f"Logged in successfully: @[bold cyan]{username}[/bold cyan] :white_check_mark:")
                 self.dump_settings(session_path)
                 log_success(f"Session saved to [bold green]{session_path}[/bold green] :floppy_disk:")

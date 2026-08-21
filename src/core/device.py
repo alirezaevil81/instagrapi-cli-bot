@@ -11,6 +11,9 @@ from typing import Dict, Any
 from instagrapi import Client
 from src.utils.console import log_print, log_success, log_warning, fix_persian
 
+# Default known stable bloks_versioning_id for Instagram Android app
+DEFAULT_BLOKS_VERSIONING_ID = "ce555e5500576acd8e84a66018f54a05720f2dce29f0bb5a1f97f0c10d6fac48"
+
 # List of modern, realistic Android device profiles for non-Termux environments
 STANDARD_DEVICE_POOLS = [
     {
@@ -23,7 +26,8 @@ STANDARD_DEVICE_POOLS = [
         "device": "e3q",
         "model": "SM-S928B",
         "cpu": "qcom",
-        "version_code": "563977314"
+        "version_code": "563977314",
+        "bloks_versioning_id": DEFAULT_BLOKS_VERSIONING_ID
     },
     {
         "app_version": "314.0.0.19.109",
@@ -35,7 +39,8 @@ STANDARD_DEVICE_POOLS = [
         "device": "dm3q",
         "model": "SM-S918B",
         "cpu": "qcom",
-        "version_code": "563977314"
+        "version_code": "563977314",
+        "bloks_versioning_id": DEFAULT_BLOKS_VERSIONING_ID
     },
     {
         "app_version": "314.0.0.19.109",
@@ -47,7 +52,8 @@ STANDARD_DEVICE_POOLS = [
         "device": "fuxi",
         "model": "2211133G",
         "cpu": "qcom",
-        "version_code": "563977314"
+        "version_code": "563977314",
+        "bloks_versioning_id": DEFAULT_BLOKS_VERSIONING_ID
     },
     {
         "app_version": "314.0.0.19.109",
@@ -59,7 +65,8 @@ STANDARD_DEVICE_POOLS = [
         "device": "shiba",
         "model": "Pixel 8",
         "cpu": "tensor-g3",
-        "version_code": "563977314"
+        "version_code": "563977314",
+        "bloks_versioning_id": DEFAULT_BLOKS_VERSIONING_ID
     },
     {
         "app_version": "314.0.0.19.109",
@@ -71,7 +78,8 @@ STANDARD_DEVICE_POOLS = [
         "device": "OP515BL1",
         "model": "CPH2449",
         "cpu": "qcom",
-        "version_code": "563977314"
+        "version_code": "563977314",
+        "bloks_versioning_id": DEFAULT_BLOKS_VERSIONING_ID
     }
 ]
 
@@ -142,7 +150,8 @@ def get_termux_device_properties() -> Dict[str, Any]:
         "device": device,
         "model": model,
         "cpu": cpu,
-        "version_code": "563977314"
+        "version_code": "563977314",
+        "bloks_versioning_id": DEFAULT_BLOKS_VERSIONING_ID
     }
 
 def generate_deterministic_device(username: str) -> Dict[str, Any]:
@@ -173,6 +182,8 @@ def setup_client_device(client: Client, username: str, session_loaded: bool = Fa
         props = get_termux_device_properties()
         log_success(f"[bold cyan]Termux Environment Detected:[/bold cyan] Using real Android hardware: [bold green]{props['manufacturer'].capitalize()} {props['model']}[/bold green] (Android {props['android_release']})")
         client.set_device(props)
+        if not getattr(client, "bloks_versioning_id", None):
+            client.bloks_versioning_id = DEFAULT_BLOKS_VERSIONING_ID
         if not session_loaded or not getattr(client, "android_device_id", None):
             uuids = generate_deterministic_uuids(username)
             client.set_country("US")
@@ -186,11 +197,15 @@ def setup_client_device(client: Client, username: str, session_loaded: bool = Fa
             dev = getattr(client, "device", {})
             model = dev.get("model", "Saved Device")
             mfg = dev.get("manufacturer", "Android")
+            if not getattr(client, "bloks_versioning_id", None):
+                client.bloks_versioning_id = dev.get("bloks_versioning_id", DEFAULT_BLOKS_VERSIONING_ID)
             log_print(f"Loaded persistent device fingerprint: [bold green]{mfg.capitalize()} {model}[/bold green] :mobile_phone:")
         else:
             props = generate_deterministic_device(username)
             uuids = generate_deterministic_uuids(username)
             client.set_device(props)
+            if not getattr(client, "bloks_versioning_id", None):
+                client.bloks_versioning_id = DEFAULT_BLOKS_VERSIONING_ID
             client.set_country("US")
             client.set_locale("en_US")
             client.set_timezone_offset(3600 * 3.5)
