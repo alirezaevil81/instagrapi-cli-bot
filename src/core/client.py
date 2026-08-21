@@ -5,7 +5,7 @@ Extends instagrapi.Client with 2FA, session management, organic warm-up, and saf
 import os
 from random import randint, choice
 from instagrapi import Client
-from instagrapi.exceptions import (
+from src.core.exceptions import (
     ClientError,
     ClientLoginRequired,
     LoginRequired,
@@ -29,6 +29,7 @@ from instagrapi.exceptions import (
     ClientJSONDecodeError,
     ProxyAddressIsBlocked
 )
+
 import questionary
 from src.config import comments, SESSIONS_DIR, ensure_storage_directories
 from src.database.repository import record_interaction

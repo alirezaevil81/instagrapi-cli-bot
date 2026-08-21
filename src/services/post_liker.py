@@ -6,7 +6,7 @@ import sys
 from random import randint
 from time import sleep
 import questionary
-from instagrapi.exceptions import (
+from src.core.exceptions import (
     MediaNotFound,
     UserNotFound,
     PrivateAccount,
