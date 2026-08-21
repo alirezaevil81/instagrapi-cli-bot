@@ -205,6 +205,15 @@ __marimo__/
 # AGENTS
 AGENTS.md
 
+# App Storage, Sessions, SQLite DB & Logs
+storage/sessions/*
+!storage/sessions/.gitignore
+storage/database/*
+!storage/database/.gitignore
+storage/logs/*
+!storage/logs/.gitignore
+data/
+
 # Web Preview & Platform files
 index.html
 metadata.json

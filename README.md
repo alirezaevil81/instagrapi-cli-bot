@@ -1,6 +1,8 @@
 <div align="center">
 
-# 🤖 Instagram CLI Bot
+<img src="https://img.icons8.com/3d-fluent/100/robot-6.png" alt="Instagram CLI Bot" width="80" height="80" />
+
+# Instagram CLI Bot
 
 **A sleek, modular, and interactive Instagram automation tool powered by `instagrapi` & `rich`.**
 
@@ -35,7 +37,7 @@ cd instagrapi-cli-bot
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
-pip install -r requirements.txt
+pip install .
 python src/main.py
 ```
 
@@ -68,7 +70,7 @@ cd instagrapi-cli-bot
 python -m venv .venv
 source .venv/bin/activate
 pip install pydantic-core --extra-index-url https://eutalix.github.io/android-pydantic-core/
-pip install -r requirements.txt
+pip install .
 
 # 4. Start the bot
 python src/main.py
@@ -99,18 +101,31 @@ Custom parameters available before starting any task:
 ```text
 instagrapi-cli-bot/
 ├── src/
-│   ├── main.py                  # CLI Hub entry point
-│   └── bot/
-│       ├── bot.py               # Instagram client & 2FA login
-│       ├── followers_liker.py   # Following engagement bot
-│       ├── post_liker.py        # Post likers extraction bot
-│       ├── config.py            # Default comments & configs
-│       └── utils.py             # Rich timers, banners & RTL tools
-├── data/
-│   ├── json/                    # Saved account sessions
-│   └── pickle/                  # Saved user queues
-├── pyproject.toml               # Modern build configuration
-└── requirements.txt             # Pip dependencies
+│   ├── main.py                  # CLI Menu Hub & interactive launcher
+│   ├── config.py                # Central storage paths & comment constants
+│   ├── core/                    # Core engine & device identity
+│   │   ├── __init__.py
+│   │   ├── client.py            # Instagram client, 2FA, session & warm-up actions
+│   │   └── device.py            # Termux hardware & persistent device fingerprinting
+│   ├── database/                # Dedicated SQLite database layer
+│   │   ├── __init__.py
+│   │   ├── engine.py            # SQLite connection pooling & migrations
+│   │   └── repository.py        # Target queue & audit history CRUD
+│   ├── services/                # Automated engagement workflows
+│   │   ├── __init__.py
+│   │   ├── followers_liker.py   # Following engagement service
+│   │   └── post_liker.py        # Post likers extraction & engagement service
+│   └── utils/                   # Rich console, logging & signals
+│       ├── __init__.py
+│       ├── console.py           # Rich timers, tables, banners & RTL support
+│       ├── logger.py            # Clean rotating file logger
+│       └── signals.py           # Graceful shutdown handler (Ctrl+C / SIGTERM)
+├── storage/                     # Isolated persistent data directory
+│   ├── sessions/                # Saved Instagram account sessions (.json)
+│   ├── database/                # SQLite database files (bot.db)
+│   └── logs/                    # Rotating log files (bot.log)
+├── pyproject.toml               # Modern packaging & CLI command entrypoints
+└── README.md
 ```
 </details>
 

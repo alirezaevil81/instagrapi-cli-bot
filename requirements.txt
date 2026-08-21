@@ -1,5 +1,0 @@
-instagrapi>=2.18.16
-questionary>=2.0.1
-rich>=13.7.1
-arabic-reshaper>=3.0.0
-python-bidi>=0.4.2

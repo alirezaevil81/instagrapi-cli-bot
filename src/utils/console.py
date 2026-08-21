@@ -13,6 +13,9 @@ from rich.progress import (
     BarColumn,
     TimeRemainingColumn
 )
+import arabic_reshaper
+from bidi.algorithm import get_display
+from src.utils.logger import get_file_logger, clean_rich_markup
 
 # Configure UTF-8 encoding on Windows consoles
 if sys.platform == "win32":
@@ -29,11 +32,8 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-# Initialize Rich Console with log time, caller path, and UTF-8 support
+# Initialize Rich Console
 console = Console(log_time=True, log_path=True, log_time_format="%Y-%m-%d %H:%M:%S", legacy_windows=False)
-
-import arabic_reshaper
-from bidi.algorithm import get_display
 
 # Configure Persian-specific character joining and ligatures
 _reshaper_config = {
@@ -46,11 +46,9 @@ _persian_reshaper = arabic_reshaper.ArabicReshaper(configuration=_reshaper_confi
 def fix_persian(text: str) -> str:
     """
     Reshapes and applies BiDi algorithm to Persian/Arabic text for correct terminal rendering.
-    If the text has no Persian/Arabic characters, returns the original text.
     """
     if not text or not isinstance(text, str):
         return text
-    # Check if string contains Persian/Arabic unicode characters
     has_persian = any('\u0600' <= char <= '\u06FF' or '\uFB50' <= char <= '\uFDFF' or '\uFE70' <= char <= '\uFEFF' for char in text)
     if not has_persian:
         return text
@@ -66,28 +64,53 @@ def fix_persian(text: str) -> str:
             return text
 
 def log_print(*args, _stack_offset: int = 2, **kwargs):
-    """Logs messages with Rich's native console.log(), rendering timestamp, caller file:line, and syntax highlighting."""
+    """Logs messages with Rich console and writes to storage/logs/bot.log."""
     console.log(*args, _stack_offset=_stack_offset, **kwargs)
+    try:
+        msg = " ".join(str(a) for a in args)
+        get_file_logger().info(clean_rich_markup(msg))
+    except Exception:
+        pass
 
 def log_success(message: str, _stack_offset: int = 2):
-    """Logs a success message with green styling and a check mark."""
+    """Logs a success message with green styling and writes to log file."""
     console.log(f"[bold green]:white_check_mark: [Successful]:[/bold green] {message}", _stack_offset=_stack_offset)
+    try:
+        get_file_logger().info(f"[SUCCESS] {clean_rich_markup(message)}")
+    except Exception:
+        pass
 
 def log_error(message: str, exception: str = "", _stack_offset: int = 2):
-    """Logs an error message with red styling and a cross mark."""
+    """Logs an error message with red styling and writes to log file."""
     exc_str = f" {exception}" if exception else ""
     console.log(f"[bold red]:cross_mark: [Error]:[/bold red] {message}{exc_str}", _stack_offset=_stack_offset)
+    try:
+        get_file_logger().error(f"[ERROR] {clean_rich_markup(message)}{exc_str}")
+    except Exception:
+        pass
 
 def log_warning(message: str, _stack_offset: int = 2):
-    """Logs a warning message with yellow styling and a warning icon."""
+    """Logs a warning message with yellow styling and writes to log file."""
     console.log(f"[bold yellow]:warning: [Warning]:[/bold yellow] {message}", _stack_offset=_stack_offset)
+    try:
+        get_file_logger().warning(f"[WARNING] {clean_rich_markup(message)}")
+    except Exception:
+        pass
 
 def log_data(data, title: str = "", _stack_offset: int = 2, **kwargs):
-    """Logs data collections (dicts, lists, objects) with Rich syntax highlighting and pretty-printing."""
+    """Logs data collections with Rich syntax highlighting and writes to file."""
     if title:
         console.log(f"[bold cyan]{title}:[/bold cyan]", data, _stack_offset=_stack_offset, **kwargs)
+        try:
+            get_file_logger().info(f"{title}: {data}")
+        except Exception:
+            pass
     else:
         console.log(data, _stack_offset=_stack_offset, **kwargs)
+        try:
+            get_file_logger().info(str(data))
+        except Exception:
+            pass
 
 def format_seconds(seconds: int) -> str:
     """Formats seconds into readable human format (e.g. 45s, 2m 30s, 1h 15m 00s)."""
@@ -140,13 +163,16 @@ def log_sleep(seconds: int, message: str = "Sleeping for safety / cooldown", _st
         if frac > 0:
             time.sleep(frac)
 
-
 def show_banner(title: str, subtitle: str = ""):
     """Displays a rich banner for CLI start using Rich emoji markup."""
     text_content = f":robot: [bold cyan]{title}[/bold cyan]\n"
     if subtitle:
         text_content += f"[dim white]{subtitle}[/dim white]\n"
     console.print(Panel(Text.from_markup(text_content), border_style="bright_blue", expand=False))
+    try:
+        get_file_logger().info(f"=== {title} ({subtitle}) ===")
+    except Exception:
+        pass
 
 def show_user_table(users: list, title: str = "Target Users"):
     """Renders a Rich table of Instagram users with Rich emoji icons."""
@@ -166,4 +192,3 @@ def show_user_table(users: list, title: str = "Target Users"):
         table.add_row(str(i), uid, uname, fix_persian(fname), privacy)
 
     console.print(table)
-

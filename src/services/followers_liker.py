@@ -1,12 +1,28 @@
+"""
+Followers Liker Service: Automated engagement and interactions for accounts you follow.
+"""
 import os
 import sys
-from time import sleep
+from random import randint
 import questionary
 
-from src.bot.bot import Bot
-from src.bot.utils import log_print, log_sleep, show_banner, console, log_error, log_warning, fix_persian
+from src.core.client import Bot
+from src.database.engine import init_db
+from src.utils import (
+    log_print,
+    log_sleep,
+    show_banner,
+    console,
+    log_error,
+    log_warning,
+    fix_persian,
+    register_graceful_shutdown
+)
 
 def main():
+    init_db()
+    register_graceful_shutdown()
+
     # ----------------- Start & Login -----------------
     show_banner("Followers Liker Bot", "Automated Post Liker & Engagement for Your Following List")
 
@@ -26,6 +42,12 @@ def main():
 
     # ----------- Interactive Configuration (Questionary) --------------
     console.print(f"\n[bold cyan]:gear: Configure Bot Parameters ({fix_persian('تنظیم پارامترهای اجرایی و تاخیرها')}):[/bold cyan]")
+
+    # Warm-up option
+    enable_warmup = questionary.confirm(
+        f"Perform natural account warm-up actions before starting? ({fix_persian('انجام آماده‌سازی و رفتار ارگانیک قبل از شروع')})",
+        default=True
+    ).ask()
 
     # Like delay configuration
     min_like_delay_str = questionary.text(f"Min delay between likes ({fix_persian('حداقل تاخیر بین لایک‌ها به ثانیه')}):", default="30").ask() or "30"
@@ -83,6 +105,10 @@ def main():
     except ValueError:
         bot.delay_range = [3, 7]
 
+    # Execute warm-up if enabled
+    if enable_warmup:
+        bot.perform_warmup_actions(max_feed_items=4, view_stories=True)
+
     console.print(f"\n[bold green]:rocket: Bot is starting for {len(followings)} following users with custom delays...[/bold green]\n")
 
     # ------------ Processing Loop ------------
@@ -97,23 +123,27 @@ def main():
 
                 user_posts = bot.get_user_posts(str(user_pk), amount=posts_amount)
                 if user_posts:
-                    all_not_liked = False
+                    action_performed = False
                     for post in user_posts:
                         post_pk = str(getattr(post, 'pk', str(post)))
                         has_liked = getattr(post, 'has_liked', False)
                         if has_liked:
                             log_warning(f"Post {post_pk} already liked previously")
                         else:
-                            all_not_liked = True
-                            # Mark post as seen
-                            bot.seen_user_post(post_pk)
-                            # Like post
-                            bot.like_user_post(post_pk)
-                            # Comment on post
+                            # 1. Mark post as seen (Impression)
+                            bot.seen_user_post(post_pk, username=username, user_pk=str(user_pk))
+                            # 2. Natural viewing dwell pause (1 to 2 seconds)
+                            view_dwell = randint(1, 2)
+                            log_sleep(view_dwell, message=f"Viewing post naturally ({view_dwell}s)")
+                            # 3. Like post
+                            liked = bot.like_user_post(post_pk, username=username, user_pk=str(user_pk))
+                            if liked:
+                                action_performed = True
+                            # 4. Comment on post
                             if commenting:
-                                bot.comment_user_post(post_pk)
+                                bot.comment_user_post(post_pk, username=username, user_pk=str(user_pk))
 
-                    if all_not_liked:
+                    if action_performed:
                         log_sleep(sleep_after_iteration, message=f"Cooling down after processing @{username}")
                 else:
                     log_warning(f"No recent posts found for @{username}")
@@ -124,7 +154,7 @@ def main():
             log_sleep(sleep_after_loop, message=f"Round {loop} complete, waiting for next cycle")
 
     except KeyboardInterrupt:
-        log_warning("\nBot stopped by user. :hand:")
+        log_warning("\nBot stopped by user safely. :hand:")
 
 if __name__ == "__main__":
     main()

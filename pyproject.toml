@@ -14,8 +14,8 @@ dependencies = [
 
 [project.scripts]
 instabot = "src.main:main"
-followers-bot = "src.bot.followers_liker:main"
-post-likers-bot = "src.bot.post_liker:main"
+followers-bot = "src.services.followers_liker:main"
+post-likers-bot = "src.services.post_liker:main"
 
 [build-system]
 requires = ["hatchling"]

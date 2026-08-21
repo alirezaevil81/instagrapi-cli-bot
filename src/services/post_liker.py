@@ -1,12 +1,32 @@
+"""
+Post Likers Service: Extracts likers from specific target post URLs and engages automatically.
+"""
 import os
-import pickle
 import sys
 from random import randint
 from time import sleep
 import questionary
+from instagrapi.exceptions import (
+    MediaNotFound,
+    UserNotFound,
+    PrivateAccount,
+    FeedbackRequired,
+    PleaseWaitFewMinutes,
+    ClientLoginRequired,
+    LoginRequired,
+    ClientError
+)
 
-from src.bot.bot import Bot
-from src.bot.utils import (
+from src.core.client import Bot
+from src.database import (
+    save_target_users_queue,
+    get_pending_target_users,
+    remove_user_from_queue,
+    clear_target_queue,
+    get_queue_count,
+    init_db
+)
+from src.utils import (
     show_banner,
     show_user_table,
     console,
@@ -15,14 +35,15 @@ from src.bot.utils import (
     log_error,
     log_warning,
     log_sleep,
-    fix_persian
+    fix_persian,
+    register_graceful_shutdown
 )
 
 def main():
-    os.makedirs("data/json", exist_ok=True)
-    os.makedirs("data/pickle", exist_ok=True)
+    init_db()
+    register_graceful_shutdown()
 
-    show_banner("Post Likers Bot", "Extract Likers from Target Posts & Automated Follow/Like Engagement")
+    show_banner("Post Likers Bot", "Extract Likers from Target Posts & Automated SQLite-backed Engagement")
 
     cl = Bot()
     cl.start()
@@ -31,26 +52,20 @@ def main():
         log_warning("Not logged in. Exiting.")
         sys.exit(0)
 
-    # ----------------- User Queue / Pickle Handling -----------------
-    pickle_path = "data/pickle/users.pkl"
-    start_via_pickle = False
+    # ----------------- User Queue / SQLite Database Handling -----------------
+    pending_count = get_queue_count()
+    start_via_saved_queue = False
 
-    if os.path.exists(pickle_path):
-        use_saved_pickle = questionary.confirm(
-            "A saved target users file (users.pkl) exists. Do you want to resume with it?",
+    if pending_count > 0:
+        use_saved_db = questionary.confirm(
+            f"Found {pending_count} pending target users in SQLite database. Do you want to resume?",
             default=True
         ).ask()
-        start_via_pickle = bool(use_saved_pickle)
+        start_via_saved_queue = bool(use_saved_db)
 
-    if start_via_pickle:
-        try:
-            with open(pickle_path, "rb") as f:
-                users = pickle.load(f)
-        except Exception as e:
-            log_error("Could not load pickle: ", str(e))
-            users = []
-        else:
-            log_success(f"Loaded [bold cyan]{len(users)}[/bold cyan] target users from saved queue.")
+    if start_via_saved_queue:
+        users = get_pending_target_users()
+        log_success(f"Loaded [bold cyan]{len(users)}[/bold cyan] target users from SQLite database queue.")
     else:
         posts_raw = questionary.text(
             "Enter target post URLs (separated by comma):",
@@ -70,6 +85,24 @@ def main():
                     pk = cl.media_pk_from_url(post)
                     post_id = cl.media_id(pk)
                     likers = cl.media_likers(post_id)
+                except MediaNotFound:
+                    log_error(f"Post {post} not found or was removed.")
+                    continue
+                except PrivateAccount:
+                    log_error(f"Target post {post} is from a private account.")
+                    continue
+                except FeedbackRequired as fb:
+                    log_error(f"Instagram Action Block / Feedback Required: {fb}")
+                    break
+                except PleaseWaitFewMinutes:
+                    log_warning("Rate limit hit while extracting likers. Instagram requested a cooldown.")
+                    break
+                except (LoginRequired, ClientLoginRequired):
+                    log_error("Session expired while extracting likers. Please re-login.")
+                    break
+                except ClientError as ce:
+                    log_error(f"Instagram ClientError for post {post}: {ce}")
+                    continue
                 except Exception as e:
                     log_error(f"Cannot fetch likers for post {post}: ", str(e))
                     likers = []
@@ -106,23 +139,25 @@ def main():
 
         users = list(dicts.values())
 
-        try:
-            with open(pickle_path, "wb") as f:
-                pickle.dump(users, f)
-        except Exception as e:
-            log_error("Cannot save pickle: ", str(e))
-        else:
-            log_success(f"Saved [bold cyan]{len(users)}[/bold cyan] target public users to queue ({pickle_path}) :floppy_disk:")
+        # Save extracted target users into SQLite database
+        saved_count = save_target_users_queue(users, clear_existing=True)
+        log_success(f"Saved [bold cyan]{saved_count}[/bold cyan] target public users to SQLite database ({cl.get_session_path('')}) :floppy_disk:")
 
     # ----------------- Display Target Users Table -----------------
     if users:
-        show_user_table(users, title="Ready Target Users Queue")
+        show_user_table(users, title="Ready Target Users Queue (SQLite)")
     else:
         log_warning("No target users found after filtering.")
         sys.exit(0)
 
     # ----------- Interactive Configuration (Questionary) --------------
     console.print(f"\n[bold cyan]:gear: Configure Bot Parameters ({fix_persian('تنظیم پارامترهای اجرایی و تاخیرها')}):[/bold cyan]")
+
+    # Warm-up option
+    enable_warmup = questionary.confirm(
+        f"Perform natural account warm-up actions before starting? ({fix_persian('انجام آماده‌سازی و رفتار ارگانیک قبل از شروع')})",
+        default=True
+    ).ask()
 
     # Like delay configuration
     min_like_delay_str = questionary.text(f"Min delay between likes ({fix_persian('حداقل تاخیر بین لایک‌ها به ثانیه')}):", default="30").ask() or "30"
@@ -151,6 +186,10 @@ def main():
     except ValueError:
         cl.delay_range = [3, 7]
 
+    # Execute warm-up if enabled
+    if enable_warmup:
+        cl.perform_warmup_actions(max_feed_items=3, view_stories=True)
+
     # ----------------- Engagement Loop -----------------
     console.print(f"\n[bold green]:rocket: Starting interaction with {len(users)} target users with custom delays...[/bold green]\n")
 
@@ -161,44 +200,34 @@ def main():
 
             log_print(f"[bold cyan]:mag: [{i}/{len(users)}][/bold cyan] Interacting with @[bold green]{uname}[/bold green] (ID: {upk})")
 
-            user_posts = []
-            try:
-                user_posts = cl.user_medias(upk, amount=posts_amount)
-            except Exception as e:
-                log_error(f"Could not fetch posts for @{uname}: ", str(e))
-            else:
-                log_success(f"Fetched [bold magenta]{len(user_posts)}[/bold magenta] posts for @{uname} :package:")
+            user_posts = cl.get_user_posts(upk, amount=posts_amount)
 
             if user_posts:
                 for post in user_posts:
                     post_pk = str(getattr(post, 'pk', str(post)))
-                    try:
-                        cl.media_like(post_pk)
-                    except Exception as e:
-                        log_error(f"Could not like post {post_pk}: ", str(e))
-                    else:
-                        log_success(f"Post {post_pk} liked :heart:")
-                        min_d, max_d = like_delay_range[0], like_delay_range[1]
-                        sleep_sec = randint(min_d, max_d)
-                        log_sleep(sleep_sec, message=f"Cooldown after like on @{uname} ({sleep_sec}s)")
+                    # 1. Mark post as seen (Impression)
+                    cl.seen_user_post(post_pk, username=uname, user_pk=upk)
+                    # 2. Natural human viewing pause (1 to 3 seconds)
+                    view_dwell = randint(1, 3)
+                    log_sleep(view_dwell, message=f"Viewing post naturally ({view_dwell}s)")
+                    # 3. Perform like action
+                    cl.like_user_post(post_pk, delay_range=like_delay_range, username=uname, user_pk=upk)
             else:
                 log_warning(f"No public posts found on profile @{uname}")
 
-            # Update queue in pickle
+            # Remove completed user from SQLite queue
+            remove_user_from_queue(upk)
             if user in users:
                 users.remove(user)
-            with open(pickle_path, "wb") as f:
-                pickle.dump(users, f)
 
-            if not users:
-                if os.path.exists(pickle_path):
-                    os.remove(pickle_path)
-                log_success(":tada: All target users processed! Queue cleared.")
-
-            log_print(f"[bold blue]Remaining users in queue:[/bold blue] [bold magenta]{len(users)}[/bold magenta]")
+            rem_count = get_queue_count()
+            if rem_count == 0:
+                log_success(":tada: All target users processed! SQLite queue cleared.")
+            else:
+                log_print(f"[bold blue]Remaining users in queue:[/bold blue] [bold magenta]{rem_count}[/bold magenta]")
 
     except KeyboardInterrupt:
-        log_warning(f"\nProcess paused by user. Progress saved in {pickle_path} :floppy_disk:.")
+        log_warning(f"\nProcess paused by user. Progress safely retained in SQLite database :floppy_disk:.")
 
     console.print("\n[bold blue]━━━━━━━━━━━━━━━━━━━━━━━━ :sparkles: All Done :sparkles: ━━━━━━━━━━━━━━━━━━━━━━━━[/bold blue]")
 
