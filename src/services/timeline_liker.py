@@ -24,6 +24,7 @@ from src.utils import (
     format_bilingual_prompt,
     ask_yes_no,
     ask_delay_range,
+    ask_choice_or_custom,
     register_graceful_shutdown
 )
 
@@ -46,27 +47,25 @@ def format_relative_time(timestamp: float) -> str:
 def display_timeline_posts_table(posts: list) -> None:
     """Renders a beautiful Rich Table showing all timeline posts sorted newest to oldest."""
     table = Table(
-        title=f":newspaper: [bold cyan]{fix_persian('پست‌ها و آیتم‌های استخراج‌شده فید تایم‌لاین')}[/bold cyan] (Newest -> Oldest)",
+        title=f":newspaper: [bold cyan]{fix_persian('پست‌های استخراج‌شده فید تایم‌لاین')}[/bold cyan] (Newest -> Oldest)",
         show_header=True,
         header_style="bold magenta",
         expand=True
     )
     table.add_column("#", style="dim", width=4, justify="center")
-    table.add_column("Page", style="cyan", width=6, justify="center")
-    table.add_column("Author / Type", style="bold cyan", width=20)
-    table.add_column("PK / ID", style="dim", width=18)
-    table.add_column("Published", style="green", width=12, justify="center")
-    table.add_column("Stats", style="yellow", width=12, justify="center")
-    table.add_column("Caption / Title", style="white")
+    table.add_column("Author", style="bold cyan", width=18)
+    table.add_column("Published", style="green", width=14, justify="center")
+    table.add_column("Stats", style="yellow", width=14, justify="center")
+    table.add_column("Caption", style="white")
     table.add_column("Status", style="bold", width=16, justify="center")
 
     for i, post in enumerate(posts, start=1):
         rel_time = format_relative_time(post["taken_at_ts"])
         stats_str = f":heart: {post.get('like_count', 0)} | :speech_balloon: {post.get('comment_count', 0)}"
         caption = (post.get("caption_text", "") or "").replace("\n", " ")
-        if len(caption) > 35:
-            caption = caption[:32] + "..."
-        caption_disp = fix_persian(caption) if caption else "[dim]-[/dim]"
+        if len(caption) > 40:
+            caption = caption[:37] + "..."
+        caption_disp = fix_persian(caption) if caption else "[dim]No caption[/dim]"
         
         is_already_liked = post.get("has_liked", False) or has_recent_interaction(post["pk"], "like")
         if is_already_liked:
@@ -76,9 +75,7 @@ def display_timeline_posts_table(posts: list) -> None:
 
         table.add_row(
             str(i),
-            f"P{post.get('page', 1)}",
             f"@{post['author_username']}",
-            str(post.get("pk", "")),
             rel_time,
             stats_str,
             caption_disp,
@@ -115,34 +112,41 @@ def main():
         default=True
     )
 
-    # Max pages to paginate per cycle
-    max_pages_str = questionary.text(
-        format_bilingual_prompt(
-            "Max feed pages to fetch per cycle",
-            "حداکثر صفحات فید برای دریافت در هر دور"
-        ),
-        default="6"
-    ).ask() or "6"
-    try:
-        max_pages = max(1, int(max_pages_str.strip()))
-    except ValueError:
-        max_pages = 6
+    # Max pages to paginate per cycle (Presets + Custom)
+    max_pages = ask_choice_or_custom(
+        english_title="Select max feed pages to fetch per cycle",
+        persian_title="حداکثر صفحات فید برای دریافت در هر دور",
+        options=[
+            (3, "3 pages", "سریع و سبک", "⚡"),
+            (6, "6 pages", "پیشنهادی و استاندارد", "🛡️"),
+            (10, "10 pages", "عمیق‌تر", "🔍"),
+            (15, "15 pages", "حداکثر فید", "🚀"),
+        ],
+        default_val=6,
+        custom_prompt_en="Enter custom max pages count",
+        custom_prompt_fa="تعداد صفحات دلخواه را وارد کنید",
+        val_type=int
+    )
 
     # Like delay configuration with presets (25-50s, 60-90s, 90-150s, Custom)
     bot.like_delay_range = ask_delay_range("likes (لایک‌ها)", default_range=[60, 90])
 
-    # Refresh cooldown between cycles
-    refresh_cooldown_min_str = questionary.text(
-        format_bilingual_prompt(
-            "Cooldown interval before refreshing timeline feed again (minutes)",
-            "فاصله زمانی تا رفرش مجدد فید به دقیقه"
-        ),
-        default="3"
-    ).ask() or "3"
-    try:
-        refresh_cooldown_seconds = int(float(refresh_cooldown_min_str.strip()) * 60)
-    except ValueError:
-        refresh_cooldown_seconds = 180
+    # Refresh cooldown between cycles (Presets + Custom)
+    refresh_cooldown_min = ask_choice_or_custom(
+        english_title="Select cooldown before refreshing timeline feed again (minutes)",
+        persian_title="فاصله زمانی استراحت تا رفرش مجدد فید به دقیقه",
+        options=[
+            (1, "1 minute", "سریع", "⚡"),
+            (3, "3 minutes", "پیشنهادی و امن", "🛡️"),
+            (5, "5 minutes", "محافظه‌کارانه", "⏳"),
+            (10, "10 minutes", "استراحت طولانی", "💤"),
+        ],
+        default_val=3,
+        custom_prompt_en="Enter custom cooldown minutes",
+        custom_prompt_fa="دقیقه استراحت دلخواه را وارد کنید",
+        val_type=float
+    )
+    refresh_cooldown_seconds = int(refresh_cooldown_min * 60)
 
     # Commenting toggle (Selectable Yes/No)
     commenting = ask_yes_no(

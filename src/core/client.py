@@ -510,16 +510,16 @@ class Bot(Client):
                         found.append(it)
                     return found
 
-                for idx, item in enumerate(raw_items, start=1):
+                for item in raw_items:
                     if not item:
                         continue
 
                     candidate_medias = extract_all_medias(item)
-                    if not candidate_medias:
-                        candidate_medias = [item]
+                    for media_data in candidate_medias:
+                        if not media_data:
+                            continue
 
-                    for sub_idx, media_data in enumerate(candidate_medias, start=1):
-                        # Extract PK / ID without skipping
+                        # Extract PK / ID
                         raw_pk = (
                             (media_data.get("pk") if isinstance(media_data, dict) else None)
                             or (media_data.get("id") if isinstance(media_data, dict) else None)
@@ -529,14 +529,21 @@ class Bot(Client):
                             or (item.get("id") if isinstance(item, dict) else None)
                         )
                         
-                        if raw_pk is not None and str(raw_pk).strip().lower() not in ("", "none"):
-                            pk = str(raw_pk).split("_")[0].strip()
-                        else:
-                            pk = f"item_p{page}_{idx}_{sub_idx}"
+                        if raw_pk is None or str(raw_pk).strip().lower() in ("", "none", "0"):
+                            continue
+
+                        pk_str = str(raw_pk).split("_")[0].strip()
+                        if not pk_str:
+                            continue
+
+                        pk = pk_str
 
                         # Track in feed_seen_posts for IG pagination cursor
                         if pk not in feed_seen_posts:
                             feed_seen_posts.append(pk)
+
+                        if pk in seen_pks:
+                            continue
 
                         # Extract timestamp
                         taken_at_raw = (
@@ -566,19 +573,12 @@ class Bot(Client):
                         else:
                             taken_at_ts = now_ts
 
-                        # Extract author / item type info
+                        # Extract author info
                         user_info = (
                             (getattr(media_data, "user", {}) if not isinstance(media_data, dict) else media_data.get("user", {}))
                             or (getattr(media_data, "owner", {}) if not isinstance(media_data, dict) else media_data.get("owner", {}))
-                            or (item.get("user", {}) if isinstance(item, dict) else {})
                         )
-                        author_username = (
-                            (getattr(user_info, "username", "") if not isinstance(user_info, dict) else user_info.get("username", ""))
-                            or (item.get("type") if isinstance(item, dict) else "")
-                            or (item.get("feed_type") if isinstance(item, dict) else "")
-                            or ("story_tray" if isinstance(item, dict) and "tray" in item else "")
-                            or "feed_item"
-                        )
+                        author_username = getattr(user_info, "username", "") if not isinstance(user_info, dict) else user_info.get("username", "")
                         author_pk = str(getattr(user_info, "pk", "") if not isinstance(user_info, dict) else (user_info.get("pk") or user_info.get("id") or ""))
                         author_full_name = getattr(user_info, "full_name", "") if not isinstance(user_info, dict) else user_info.get("full_name", "")
 
@@ -593,17 +593,17 @@ class Bot(Client):
                             caption_text = caption_raw
                         elif hasattr(caption_raw, "text"):
                             caption_text = getattr(caption_raw, "text", "")
-                        elif isinstance(item, dict) and "title" in item:
-                            caption_text = str(item.get("title", ""))
 
                         code = getattr(media_data, "code", "") if not isinstance(media_data, dict) else media_data.get("code", "")
                         like_count = getattr(media_data, "like_count", 0) if not isinstance(media_data, dict) else media_data.get("like_count", 0)
                         comment_count = getattr(media_data, "comment_count", 0) if not isinstance(media_data, dict) else media_data.get("comment_count", 0)
 
+                        seen_pks.add(pk)
+
                         post_obj = {
                             "pk": pk,
                             "code": code,
-                            "author_username": author_username,
+                            "author_username": author_username or "instagram_user",
                             "author_pk": author_pk,
                             "author_full_name": author_full_name,
                             "taken_at_ts": taken_at_ts,
@@ -612,7 +612,6 @@ class Bot(Client):
                             "caption_text": caption_text,
                             "like_count": like_count,
                             "comment_count": comment_count,
-                            "page": page,
                         }
 
                         all_scanned_posts.append(post_obj)

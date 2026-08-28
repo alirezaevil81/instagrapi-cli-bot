@@ -39,6 +39,8 @@ from src.utils import (
     format_bilingual_prompt,
     ask_yes_no,
     ask_delay_range,
+    ask_api_delay_range,
+    ask_choice_or_custom,
     register_graceful_shutdown
 )
 
@@ -170,40 +172,24 @@ def main():
     # Like delay configuration with presets
     like_delay_range = ask_delay_range("likes (لایک‌ها)", default_range=[60, 90])
 
-    # Posts to check per target user
-    posts_amount_str = questionary.text(
-        format_bilingual_prompt(
-            "Number of recent posts to like per target user",
-            "تعداد پست‌های لایک‌شده برای هر کاربر هدف"
-        ),
-        default="3"
-    ).ask() or "3"
-    try:
-        posts_amount = max(1, int(posts_amount_str.strip()))
-    except ValueError:
-        posts_amount = 3
+    # Posts to check per target user (Presets + Custom)
+    posts_amount = ask_choice_or_custom(
+        english_title="Select number of recent posts to like per target user",
+        persian_title="تعداد پست‌های لایک‌شده برای هر کاربر هدف",
+        options=[
+            (1, "1 post", "سریع و سبک", "⚡"),
+            (3, "3 posts", "پیشنهادی و استاندارد", "🛡️"),
+            (5, "5 posts", "عمیق‌تر", "🔍"),
+            (8, "8 posts", "لایک حداکثری", "🌟"),
+        ],
+        default_val=3,
+        custom_prompt_en="Enter custom number of posts to like per user",
+        custom_prompt_fa="تعداد پست‌های لایک دلخواه را وارد کنید",
+        val_type=int
+    )
 
-    # API Request Delay range
-    min_delay_str = questionary.text(
-        format_bilingual_prompt(
-            "Base API request delay min (seconds)",
-            "حداقل تاخیر پایه ریکوئست‌های اینستاگرام به ثانیه"
-        ),
-        default="3"
-    ).ask() or "3"
-    max_delay_str = questionary.text(
-        format_bilingual_prompt(
-            "Base API request delay max (seconds)",
-            "حداکثر تاخیر پایه ریکوئست‌های اینستاگرام به ثانیه"
-        ),
-        default="7"
-    ).ask() or "7"
-    try:
-        d1 = int(min_delay_str.strip())
-        d2 = int(max_delay_str.strip())
-        cl.delay_range = [min(d1, d2), max(d1, d2)]
-    except ValueError:
-        cl.delay_range = [3, 7]
+    # API Request Delay range (Presets + Custom)
+    cl.delay_range = ask_api_delay_range(default_range=[3, 7])
 
     # Execute warm-up if enabled
     if enable_warmup:

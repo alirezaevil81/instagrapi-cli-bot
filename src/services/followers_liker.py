@@ -19,6 +19,8 @@ from src.utils import (
     format_bilingual_prompt,
     ask_yes_no,
     ask_delay_range,
+    ask_api_delay_range,
+    ask_choice_or_custom,
     register_graceful_shutdown
 )
 
@@ -56,18 +58,21 @@ def main():
     # Like delay configuration with presets
     bot.like_delay_range = ask_delay_range("likes (لایک‌ها)", default_range=[60, 90])
 
-    # Posts to check per user
-    posts_amount_str = questionary.text(
-        format_bilingual_prompt(
-            "Number of recent posts to check per user",
-            "تعداد پست‌های بررسی‌شده برای هر کاربر"
-        ),
-        default="4"
-    ).ask() or "4"
-    try:
-        posts_amount = max(1, int(posts_amount_str.strip()))
-    except ValueError:
-        posts_amount = 4
+    # Posts to check per user (Presets + Custom)
+    posts_amount = ask_choice_or_custom(
+        english_title="Select number of recent posts to check per user",
+        persian_title="تعداد پست‌های بررسی‌شده برای هر کاربر",
+        options=[
+            (2, "2 posts", "سریع و سبک", "⚡"),
+            (4, "4 posts", "پیشنهادی و استاندارد", "🛡️"),
+            (6, "6 posts", "عمیق‌تر", "🔍"),
+            (10, "10 posts", "بررسی کامل‌تر", "🌟"),
+        ],
+        default_val=4,
+        custom_prompt_en="Enter custom number of posts to check",
+        custom_prompt_fa="تعداد پست‌های دلخواه را وارد کنید",
+        val_type=int
+    )
 
     # Commenting toggle and delay (Selectable Yes/No)
     commenting = ask_yes_no(
@@ -81,53 +86,42 @@ def main():
     else:
         log_print("Automated commenting is [bold red]DISABLED[/bold red] :cross_mark:")
 
-    # Sleep after user with actions
-    sleep_iter_str = questionary.text(
-        format_bilingual_prompt(
-            "Cooldown after processing each user (minutes)",
-            "استراحت بعد از پردازش هر کاربر به دقیقه"
-        ),
-        default="2"
-    ).ask() or "2"
-    try:
-        sleep_after_iteration = int(float(sleep_iter_str.strip()) * 60)
-    except ValueError:
-        sleep_after_iteration = 120
+    # Sleep after user with actions (Presets + Custom)
+    sleep_iter_min = ask_choice_or_custom(
+        english_title="Select cooldown after processing each user (minutes)",
+        persian_title="استراحت بعد از پردازش هر کاربر به دقیقه",
+        options=[
+            (1, "1 minute", "سریع", "⚡"),
+            (2, "2 minutes", "پیشنهادی و امن", "🛡️"),
+            (4, "4 minutes", "محافظه‌کارانه", "⏳"),
+            (6, "6 minutes", "استراحت طولانی", "💤"),
+        ],
+        default_val=2,
+        custom_prompt_en="Enter custom cooldown minutes after each user",
+        custom_prompt_fa="دقیقه استراحت دلخواه بعد از هر کاربر را وارد کنید",
+        val_type=float
+    )
+    sleep_after_iteration = int(sleep_iter_min * 60)
 
-    # Sleep after full loop
-    sleep_loop_str = questionary.text(
-        format_bilingual_prompt(
-            "Cooldown after completing a full round (hours)",
-            "استراحت در پایان هر دور به ساعت"
-        ),
-        default="1"
-    ).ask() or "1"
-    try:
-        sleep_after_loop = int(float(sleep_loop_str.strip()) * 3600)
-    except ValueError:
-        sleep_after_loop = 3600
+    # Sleep after full loop (Presets + Custom)
+    sleep_loop_hours = ask_choice_or_custom(
+        english_title="Select cooldown after completing a full round (hours)",
+        persian_title="استراحت در پایان هر دور به ساعت",
+        options=[
+            (0.5, "0.5 hour (30 mins)", "نیم ساعت", "⚡"),
+            (1.0, "1.0 hour", "۱ ساعت - پیشنهادی", "🛡️"),
+            (2.0, "2.0 hours", "۲ ساعت - امن", "⏳"),
+            (4.0, "4.0 hours", "۴ ساعت - طولانی", "💤"),
+        ],
+        default_val=1.0,
+        custom_prompt_en="Enter custom cooldown hours after full loop",
+        custom_prompt_fa="ساعت استراحت دلخواه در پایان دور را وارد کنید",
+        val_type=float
+    )
+    sleep_after_loop = int(sleep_loop_hours * 3600)
 
-    # API Request Delay range
-    min_delay_str = questionary.text(
-        format_bilingual_prompt(
-            "Base API request delay min (seconds)",
-            "حداقل تاخیر پایه ریکوئست‌های اینستاگرام به ثانیه"
-        ),
-        default="3"
-    ).ask() or "3"
-    max_delay_str = questionary.text(
-        format_bilingual_prompt(
-            "Base API request delay max (seconds)",
-            "حداکثر تاخیر پایه ریکوئست‌های اینستاگرام به ثانیه"
-        ),
-        default="7"
-    ).ask() or "7"
-    try:
-        d1 = int(min_delay_str.strip())
-        d2 = int(max_delay_str.strip())
-        bot.delay_range = [min(d1, d2), max(d1, d2)]
-    except ValueError:
-        bot.delay_range = [3, 7]
+    # API Request Delay range (Presets + Custom)
+    bot.delay_range = ask_api_delay_range(default_range=[3, 7])
 
     # Execute warm-up if enabled
     if enable_warmup:

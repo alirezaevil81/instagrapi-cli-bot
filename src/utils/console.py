@@ -88,6 +88,118 @@ def ask_yes_no(english_question: str, persian_question: str, default: bool = Tru
     ).ask()
     return default if choice is None else bool(choice)
 
+def ask_choice_or_custom(
+    english_title: str,
+    persian_title: str,
+    options: list,  # list of tuples: (value, title_en, title_fa, icon)
+    default_val: any = None,
+    custom_prompt_en: str = "Enter custom value",
+    custom_prompt_fa: str = "مقدار دلخواه را وارد کنید",
+    val_type: type = int
+):
+    """
+    Shows an interactive list of preset choices with a 'Custom...' option.
+    """
+    import questionary
+    prompt_text = f"{english_title}\n  ↪ {fix_persian(persian_title)}:"
+    
+    choices = []
+    default_choice = None
+    
+    for opt in options:
+        val, title_en, title_fa, icon = opt
+        label = f"{icon} {title_en} ({fix_persian(title_fa)})"
+        c = questionary.Choice(title=label, value=val)
+        choices.append(c)
+        if default_val is not None and val == default_val:
+            default_choice = c
+            
+    custom_choice = questionary.Choice(
+        title=f"⚙️ Custom... ({fix_persian('تنظیم دلخواه و دستی')})",
+        value="__custom__"
+    )
+    choices.append(custom_choice)
+    
+    if default_choice is None and choices:
+        default_choice = choices[0]
+        
+    selected = questionary.select(
+        prompt_text,
+        choices=choices,
+        default=default_choice
+    ).ask()
+    
+    if selected == "__custom__":
+        cust_prompt = format_bilingual_prompt(custom_prompt_en, custom_prompt_fa)
+        val_str = questionary.text(
+            cust_prompt,
+            default=str(default_val if default_val is not None else "1"),
+            validate=lambda x: True if len(x.strip()) > 0 else "Please enter a value"
+        ).ask() or str(default_val if default_val is not None else "1")
+        try:
+            if val_type == int:
+                return max(1, int(float(val_str.strip())))
+            elif val_type == float:
+                return max(0.1, float(val_str.strip()))
+            return val_str.strip()
+        except ValueError:
+            return default_val if default_val is not None else (1 if val_type == int else 1.0)
+    
+    return selected if selected is not None else default_val
+
+
+def ask_api_delay_range(default_range: list = None) -> list:
+    """
+    Interactive select menu for base API request delay presets.
+    """
+    import questionary
+    if not default_range or len(default_range) != 2:
+        default_range = [3, 7]
+
+    prompt_text = (
+        f"Select base Instagram API request delay range (seconds):\n"
+        f"  ↪ {fix_persian('انتخاب بازه تاخیر پایه ریکوئست‌های اینستاگرام به ثانیه')}:"
+    )
+
+    c_fast = questionary.Choice(title=f"⚡ 2 - 5 seconds ({fix_persian('سریع')})", value="2_5")
+    c_safe = questionary.Choice(title=f"🛡️ 3 - 7 seconds ({fix_persian('پیشنهادی و امن')})", value="3_7")
+    c_slow = questionary.Choice(title=f"⏳ 5 - 10 seconds ({fix_persian('محافظه‌کارانه و کند')})", value="5_10")
+    c_custom = questionary.Choice(title=f"⚙️ Custom interval... ({fix_persian('تنظیم دلخواه و دستی')})", value="custom")
+    choices = [c_fast, c_safe, c_slow, c_custom]
+
+    selected = questionary.select(
+        prompt_text,
+        choices=choices,
+        default=c_safe
+    ).ask()
+
+    if selected == "2_5":
+        return [2, 5]
+    elif selected == "3_7":
+        return [3, 7]
+    elif selected == "5_10":
+        return [5, 10]
+    elif selected == "custom":
+        min_p = format_bilingual_prompt(
+            "Base API request delay min (seconds)",
+            "حداقل تاخیر پایه ریکوئست‌های اینستاگرام به ثانیه"
+        )
+        max_p = format_bilingual_prompt(
+            "Base API request delay max (seconds)",
+            "حداکثر تاخیر پایه ریکوئست‌های اینستاگرام به ثانیه"
+        )
+        min_val_str = questionary.text(min_p, default=str(default_range[0])).ask() or str(default_range[0])
+        max_val_str = questionary.text(max_p, default=str(default_range[1])).ask() or str(default_range[1])
+        try:
+            val1 = max(1, int(min_val_str.strip()))
+            val2 = max(1, int(max_val_str.strip()))
+            return [min(val1, val2), max(val1, val2)]
+        except ValueError:
+            return default_range
+    else:
+        return default_range
+
+
 def ask_delay_range(action_name: str = "likes", default_range: list = None) -> list:
     """
     Interactive select menu for delay presets with a Custom option.
@@ -102,8 +214,8 @@ def ask_delay_range(action_name: str = "likes", default_range: list = None) -> l
         f"  ↪ {fix_persian(f'انتخاب بازه تاخیر و وقفه بین {action_name} به ثانیه')}:"
     )
 
-    c_25_50 = questionary.Choice(title=f"⚡ 25 - 50 seconds ({fix_persian('پیشنهادی سریع/متوسط')})", value="25_50")
-    c_60_90 = questionary.Choice(title=f"🛡️ 60 - 90 seconds ({fix_persian('پیشنهادی امن و مطمئن')})", value="60_90")
+    c_25_50 = questionary.Choice(title=f"⚡ 25 - 50 seconds ({fix_persian('سریع / متوسط')})", value="25_50")
+    c_60_90 = questionary.Choice(title=f"🛡️ 60 - 90 seconds ({fix_persian('پیشنهادی امن و استاندارد')})", value="60_90")
     c_90_150 = questionary.Choice(title=f"⏳ 90 - 150 seconds ({fix_persian('خیلی امن و محافظه‌کارانه')})", value="90_150")
     c_custom = questionary.Choice(title=f"⚙️ Custom interval... ({fix_persian('تنظیم دلخواه و دستی')})", value="custom")
     choices = [c_25_50, c_60_90, c_90_150, c_custom]
