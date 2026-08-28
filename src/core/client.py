@@ -605,7 +605,10 @@ class Bot(Client):
                     else:
                         page_old_count += 1
 
-                log_print(f"Feed Page [bold cyan]{page}[/bold cyan]: {len(raw_items)} items retrieved | [bold green]{page_new_count}[/bold green] valid posts | [dim]{page_old_count} older[/dim]")
+                if cutoff_hours > 0:
+                    log_print(f"Feed Page [bold cyan]{page}[/bold cyan]: {len(raw_items)} items retrieved | [bold green]{page_new_count}[/bold green] valid posts | [dim]{page_old_count} older[/dim]")
+                else:
+                    log_print(f"Feed Page [bold cyan]{page}[/bold cyan]: {len(raw_items)} items retrieved | [bold green]{page_new_count}[/bold green] valid posts")
 
                 # Check pagination cursor
                 next_max_id = feed_data.get("next_max_id")

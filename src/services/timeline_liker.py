@@ -1,7 +1,6 @@
 """
-Timeline Feed Liker Service: Automatically fetches posts from your Instagram timeline feed,
-filters posts from the last 24 hours, sorts them from newest to oldest, likes them,
-and continuously refreshes the feed in recurring cycles.
+Timeline Feed Liker Service: Automatically fetches all available posts from your Instagram timeline feed,
+sorts them from newest to oldest, likes them, and continuously refreshes the feed in recurring cycles.
 """
 import os
 import sys
@@ -44,11 +43,10 @@ def format_relative_time(timestamp: float) -> str:
         days = diff // 86400
         return f"{days}d ago"
 
-def display_timeline_posts_table(posts: list, cutoff_hours: float = 0.0) -> None:
+def display_timeline_posts_table(posts: list) -> None:
     """Renders a beautiful Rich Table showing all timeline posts sorted newest to oldest."""
-    time_label = f" ({cutoff_hours:g}h window)" if cutoff_hours > 0 else ""
     table = Table(
-        title=f":newspaper: [bold cyan]{fix_persian('پست‌های استخراج‌شده فید تایم‌لاین')}{time_label}[/bold cyan] (Newest -> Oldest)",
+        title=f":newspaper: [bold cyan]{fix_persian('پست‌های استخراج‌شده فید تایم‌لاین')}[/bold cyan] (Newest -> Oldest)",
         show_header=True,
         header_style="bold magenta",
         expand=True
@@ -93,7 +91,7 @@ def main():
     # ----------------- Start & Login -----------------
     show_banner(
         "Timeline Feed Liker Bot",
-        "Continuous 24h Feed Posts Liker (Newest to Oldest) with Auto-Refresh"
+        "Continuous Timeline Feed Posts Liker (Newest to Oldest) with Auto-Refresh"
     )
 
     bot = Bot()
@@ -112,30 +110,6 @@ def main():
         "انجام آماده‌سازی و رفتار ارگانیک قبل از شروع ربات؟",
         default=True
     )
-
-    # Cutoff hours (default 0 for all posts, or specify custom hours)
-    cutoff_hours_str = questionary.text(
-        format_bilingual_prompt(
-            "Filter posts by time window in hours (Enter '0' for All Feed Posts [Default])",
-            "فیلتر زمانی به ساعت - برای دریافت تمام پست‌های فید 0 را تایید کنید"
-        ),
-        default="0"
-    ).ask() or "0"
-    try:
-        cutoff_hours = float(cutoff_hours_str.strip())
-        if cutoff_hours < 0:
-            cutoff_hours = 0.0
-    except ValueError:
-        cutoff_hours = 0.0
-
-    # Auto-fallback option
-    auto_fallback = True
-    if cutoff_hours > 0:
-        auto_fallback = ask_yes_no(
-            "Auto-fallback to available feed posts if 0 posts found in the strict time window?",
-            "در صورت نبود پست در بازه زمانی، سایر پست‌های موجود فید لایک شوند؟",
-            default=True
-        )
 
     # Max pages to paginate per cycle
     max_pages_str = questionary.text(
@@ -180,7 +154,7 @@ def main():
     if enable_warmup:
         bot.perform_warmup_actions(max_feed_items=4, view_stories=True)
 
-    console.print(f"\n[bold green]:rocket: Starting Continuous 24h Timeline Liker Bot...[/bold green]\n")
+    console.print(f"\n[bold green]:rocket: Starting Continuous Timeline Liker Bot...[/bold green]\n")
 
     # ------------ Continuous Feed Refresh & Like Loop ------------
     round_num = 0
@@ -190,30 +164,27 @@ def main():
         while True:
             round_num += 1
             console.print(f"\n[bold magenta]═══════════════ :repeat: Round {round_num}: Refreshing Timeline Feed ═══════════════[/bold magenta]")
-            time_desc = f"from the last [bold cyan]{cutoff_hours:g}h[/bold cyan]" if cutoff_hours > 0 else "[bold cyan](All Available)[/bold cyan]"
-            log_print(f"Fetching up to [bold cyan]{max_pages}[/bold cyan] pages of timeline feed {time_desc}...")
+            log_print(f"Fetching up to [bold cyan]{max_pages}[/bold cyan] pages of timeline feed...")
 
-            # 1. Fetch posts from timeline feed
+            # 1. Fetch posts from timeline feed (all available posts, no time filter)
             recent_posts = bot.fetch_timeline_feed_posts_24h(
                 max_pages=max_pages,
-                cutoff_hours=cutoff_hours,
-                fallback_if_empty=auto_fallback
+                cutoff_hours=0.0,
+                fallback_if_empty=True
             )
 
             if not recent_posts:
-                no_post_msg = f"for the last {cutoff_hours:g} hours" if cutoff_hours > 0 else "in your timeline feed"
-                log_warning(f"No posts found {no_post_msg}.")
+                log_warning("No posts found in your timeline feed.")
                 log_sleep(
                     refresh_cooldown_seconds,
                     message=f"Waiting {refresh_cooldown_seconds//60}m before next feed refresh"
                 )
                 continue
 
-            time_success_desc = f"in the last {cutoff_hours:g} hours" if cutoff_hours > 0 else "from timeline feed"
-            log_success(f"Retrieved [bold cyan]{len(recent_posts)}[/bold cyan] total posts {time_success_desc} :newspaper:")
+            log_success(f"Retrieved [bold cyan]{len(recent_posts)}[/bold cyan] total posts from timeline feed :newspaper:")
 
             # 2. Display extracted posts in table
-            display_timeline_posts_table(recent_posts, cutoff_hours=cutoff_hours)
+            display_timeline_posts_table(recent_posts)
 
             # 3. Filter unliked posts (newest to oldest)
             unliked_posts = [
@@ -222,8 +193,7 @@ def main():
             ]
 
             if not unliked_posts:
-                all_liked_desc = f"from the last {cutoff_hours:g} hours" if cutoff_hours > 0 else "in the current feed"
-                log_success(f":sparkles: [bold green]All {len(recent_posts)} posts {all_liked_desc} are already liked![/bold green]")
+                log_success(f":sparkles: [bold green]All {len(recent_posts)} posts in the current feed are already liked![/bold green]")
                 mins_text = f"{refresh_cooldown_seconds // 60}m" if refresh_cooldown_seconds >= 60 else f"{refresh_cooldown_seconds}s"
                 log_print(f"Cooling down for [bold cyan]{mins_text}[/bold cyan] before refreshing timeline for new incoming posts... :sleeping:")
                 log_sleep(
