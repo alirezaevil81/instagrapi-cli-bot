@@ -9,6 +9,7 @@ from rich.text import Text
 from rich.rule import Rule
 from rich.columns import Columns
 from rich import box
+from rich.emoji import Emoji
 from rich.progress import (
     Progress,
     SpinnerColumn,
@@ -19,6 +20,82 @@ from rich.progress import (
 import arabic_reshaper
 from bidi.algorithm import get_display
 from src.utils.logger import get_file_logger, clean_rich_markup
+
+_EMOJI_FALLBACKS = {
+    ":zap:": "⚡",
+    ":shield:": "🛡️",
+    ":newspaper:": "📰",
+    ":bust_in_silhouette:": "👤",
+    ":busts_in_silhouette:": "👥",
+    ":target:": "🎯",
+    ":door:": "🚪",
+    ":gear:": "⚙️",
+    ":white_check_mark:": "✅",
+    ":x:": "❌",
+    ":cross_mark:": "❌",
+    ":warning:": "⚠️",
+    ":hourglass:": "⏳",
+    ":sleeping:": "😴",
+    ":zzz:": "💤",
+    ":coffee:": "☕",
+    ":stop_sign:": "🛑",
+    ":wave:": "👋",
+    ":camera:": "📷",
+    ":heart:": "❤️",
+    ":speech_balloon:": "💬",
+    ":floppy_disk:": "💾",
+    ":star:": "⭐",
+    ":mag:": "🔍",
+    ":bar_chart:": "📊",
+    ":tada:": "🎉",
+    ":rocket:": "🚀",
+    ":key:": "🔑",
+    ":heavy_plus_sign:": "➕",
+    ":arrow_right:": "➡️",
+    ":fast_forward:": "⏩",
+    ":memo:": "📝",
+    ":pushpin:": "📌",
+    ":chart_with_upwards_trend:": "📈",
+    ":robot:": "🤖",
+    ":sparkles:": "✨",
+    ":repeat:": "🔄",
+    ":clipboard:": "📋",
+    ":hash:": "#️⃣",
+    ":id:": "🆔",
+    ":name_badge:": "📛",
+    ":lock:": "🔒",
+    ":globe_with_meridians:": "🌐",
+    ":clock1:": "🕒",
+    ":smiley:": "😃",
+    ":thumbs_up:": "👍",
+    ":heart_eyes:": "😍",
+    ":ok_hand:": "👌",
+    ":star_struck:": "🤩",
+    ":kissing_heart:": "😘",
+    ":sparkling_heart:": "💖",
+    ":smiling_face_with_3_hearts:": "🥰",
+    ":sunglasses:": "😎",
+    ":fire:": "🔥",
+    ":clapping_hands:": "👏",
+    ":rainbow:": "🌈",
+    ":dizzy:": "💫"
+}
+
+def em(text: str) -> str:
+    """
+    Converts Rich emoji shortcodes (e.g. :zap:, :newspaper:, :white_check_mark:)
+    to Unicode emoji characters at runtime using Rich's Emoji parser with safety fallbacks.
+    """
+    if not text or not isinstance(text, str):
+        return text
+    try:
+        res = Emoji.replace(text)
+    except Exception:
+        res = text
+    for code, emoji_char in _EMOJI_FALLBACKS.items():
+        if code in res:
+            res = res.replace(code, emoji_char)
+    return res
 
 # Configure UTF-8 encoding on Windows consoles
 if sys.platform == "win32":
@@ -79,9 +156,9 @@ def ask_yes_no(english_question: str, persian_question: str, default: bool = Tru
     Displays an interactive selection menu with Yes / No options instead of single-character inputs.
     """
     import questionary
-    prompt_text = f"{english_question}\n  ↪ {fix_persian(persian_question)}"
-    yes_choice = questionary.Choice(title=f":white_check_mark: Yes ({fix_persian('بله')})", value=True)
-    no_choice = questionary.Choice(title=f":x: No ({fix_persian('خیر')})", value=False)
+    prompt_text = em(f"{english_question}\n  ↪ {fix_persian(persian_question)}")
+    yes_choice = questionary.Choice(title=em(f":white_check_mark: Yes ({fix_persian('بله')})"), value=True)
+    no_choice = questionary.Choice(title=em(f":x: No ({fix_persian('خیر')})"), value=False)
     choices = [yes_choice, no_choice]
 
     choice = questionary.select(
@@ -104,21 +181,21 @@ def ask_choice_or_custom(
     Shows an interactive list of preset choices with a 'Custom...' option.
     """
     import questionary
-    prompt_text = f"{english_title}\n  ↪ {fix_persian(persian_title)}:"
+    prompt_text = em(f"{english_title}\n  ↪ {fix_persian(persian_title)}:")
     
     choices = []
     default_choice = None
     
     for opt in options:
         val, title_en, title_fa, icon = opt
-        label = f"{icon} {title_en} ({fix_persian(title_fa)})"
+        label = em(f"{icon} {title_en} ({fix_persian(title_fa)})")
         c = questionary.Choice(title=label, value=val)
         choices.append(c)
         if default_val is not None and val == default_val:
             default_choice = c
             
     custom_choice = questionary.Choice(
-        title=f":gear: Custom... ({fix_persian('تنظیم دلخواه و دستی')})",
+        title=em(f":gear: Custom... ({fix_persian('تنظیم دلخواه و دستی')})"),
         value="__custom__"
     )
     choices.append(custom_choice)
@@ -135,7 +212,7 @@ def ask_choice_or_custom(
     if selected == "__custom__":
         cust_prompt = format_bilingual_prompt(custom_prompt_en, custom_prompt_fa)
         val_str = questionary.text(
-            cust_prompt,
+            em(cust_prompt),
             default=str(default_val if default_val is not None else "1"),
             validate=lambda x: True if len(x.strip()) > 0 else "Please enter a value"
         ).ask() or str(default_val if default_val is not None else "1")
@@ -159,15 +236,15 @@ def ask_api_delay_range(default_range: list = None) -> list:
     if not default_range or len(default_range) != 2:
         default_range = [3, 7]
 
-    prompt_text = (
+    prompt_text = em(
         f"Select base Instagram API request delay range (seconds):\n"
         f"  ↪ {fix_persian('انتخاب بازه تاخیر پایه ریکوئست‌های اینستاگرام به ثانیه')}:"
     )
 
-    c_fast = questionary.Choice(title=f":zap: 2 - 5 seconds ({fix_persian('سریع')})", value="2_5")
-    c_safe = questionary.Choice(title=f":shield: 3 - 7 seconds ({fix_persian('پیشنهادی و امن')})", value="3_7")
-    c_slow = questionary.Choice(title=f":hourglass: 5 - 10 seconds ({fix_persian('محافظه‌کارانه و کند')})", value="5_10")
-    c_custom = questionary.Choice(title=f":gear: Custom interval... ({fix_persian('تنظیم دلخواه و دستی')})", value="custom")
+    c_fast = questionary.Choice(title=em(f":zap: 2 - 5 seconds ({fix_persian('سریع')})"), value="2_5")
+    c_safe = questionary.Choice(title=em(f":shield: 3 - 7 seconds ({fix_persian('پیشنهادی و امن')})"), value="3_7")
+    c_slow = questionary.Choice(title=em(f":hourglass: 5 - 10 seconds ({fix_persian('محافظه‌کارانه و کند')})"), value="5_10")
+    c_custom = questionary.Choice(title=em(f":gear: Custom interval... ({fix_persian('تنظیم دلخواه و دستی')})"), value="custom")
     choices = [c_fast, c_safe, c_slow, c_custom]
 
     selected = questionary.select(
@@ -191,8 +268,8 @@ def ask_api_delay_range(default_range: list = None) -> list:
             "Base API request delay max (seconds)",
             "حداکثر تاخیر پایه ریکوئست‌های اینستاگرام به ثانیه"
         )
-        min_val_str = questionary.text(min_p, default=str(default_range[0])).ask() or str(default_range[0])
-        max_val_str = questionary.text(max_p, default=str(default_range[1])).ask() or str(default_range[1])
+        min_val_str = questionary.text(em(min_p), default=str(default_range[0])).ask() or str(default_range[0])
+        max_val_str = questionary.text(em(max_p), default=str(default_range[1])).ask() or str(default_range[1])
         try:
             val1 = max(1, int(min_val_str.strip()))
             val2 = max(1, int(max_val_str.strip()))
@@ -212,15 +289,15 @@ def ask_delay_range(action_name: str = "likes", default_range: list = None) -> l
     if not default_range or len(default_range) != 2:
         default_range = [60, 90]
 
-    prompt_text = (
+    prompt_text = em(
         f"Select delay interval between {action_name} (seconds):\n"
         f"  ↪ {fix_persian(f'انتخاب بازه تاخیر و وقفه بین {action_name} به ثانیه')}:"
     )
 
-    c_25_50 = questionary.Choice(title=f":zap: 25 - 50 seconds ({fix_persian('سریع / متوسط')})", value="25_50")
-    c_60_90 = questionary.Choice(title=f":shield: 60 - 90 seconds ({fix_persian('پیشنهادی امن و استاندارد')})", value="60_90")
-    c_90_150 = questionary.Choice(title=f":hourglass: 90 - 150 seconds ({fix_persian('خیلی امن و محافظه‌کارانه')})", value="90_150")
-    c_custom = questionary.Choice(title=f":gear: Custom interval... ({fix_persian('تنظیم دلخواه و دستی')})", value="custom")
+    c_25_50 = questionary.Choice(title=em(f":zap: 25 - 50 seconds ({fix_persian('سریع / متوسط')})"), value="25_50")
+    c_60_90 = questionary.Choice(title=em(f":shield: 60 - 90 seconds ({fix_persian('پیشنهادی امن و استاندارد')})"), value="60_90")
+    c_90_150 = questionary.Choice(title=em(f":hourglass: 90 - 150 seconds ({fix_persian('خیلی امن و محافظه‌کارانه')})"), value="90_150")
+    c_custom = questionary.Choice(title=em(f":gear: Custom interval... ({fix_persian('تنظیم دلخواه و دستی')})"), value="custom")
     choices = [c_25_50, c_60_90, c_90_150, c_custom]
 
     selected = questionary.select(
@@ -244,8 +321,8 @@ def ask_delay_range(action_name: str = "likes", default_range: list = None) -> l
             f"Enter maximum delay for {action_name} (seconds)",
             f"حداکثر تاخیر بین {action_name} به ثانیه"
         )
-        min_val_str = questionary.text(min_p, default=str(default_range[0])).ask() or str(default_range[0])
-        max_val_str = questionary.text(max_p, default=str(default_range[1])).ask() or str(default_range[1])
+        min_val_str = questionary.text(em(min_p), default=str(default_range[0])).ask() or str(default_range[0])
+        max_val_str = questionary.text(em(max_p), default=str(default_range[1])).ask() or str(default_range[1])
         try:
             val1 = max(1, int(min_val_str.strip()))
             val2 = max(1, int(max_val_str.strip()))
@@ -258,16 +335,18 @@ def ask_delay_range(action_name: str = "likes", default_range: list = None) -> l
 
 def log_print(*args, _stack_offset: int = 2, **kwargs):
     """Logs messages with Rich console and writes to storage/logs/bot.log."""
-    console.log(*args, _stack_offset=_stack_offset, **kwargs)
+    processed_args = [em(str(a)) if isinstance(a, str) else a for a in args]
+    console.log(*processed_args, _stack_offset=_stack_offset, **kwargs)
     try:
-        msg = " ".join(str(a) for a in args)
+        msg = " ".join(str(a) for a in processed_args)
         get_file_logger().info(clean_rich_markup(msg))
     except Exception:
         pass
 
 def log_success(message: str, _stack_offset: int = 2):
     """Logs a success message with green styling and writes to log file."""
-    console.log(f"[bold green]:white_check_mark: [Successful]:[/bold green] {message}", _stack_offset=_stack_offset)
+    msg = em(f"[bold green]:white_check_mark: [Successful]:[/bold green] {message}")
+    console.log(msg, _stack_offset=_stack_offset)
     try:
         get_file_logger().info(f"[SUCCESS] {clean_rich_markup(message)}")
     except Exception:
@@ -276,7 +355,8 @@ def log_success(message: str, _stack_offset: int = 2):
 def log_error(message: str, exception: str = "", _stack_offset: int = 2):
     """Logs an error message with red styling and writes to log file."""
     exc_str = f" {exception}" if exception else ""
-    console.log(f"[bold red]:cross_mark: [Error]:[/bold red] {message}{exc_str}", _stack_offset=_stack_offset)
+    msg = em(f"[bold red]:cross_mark: [Error]:[/bold red] {message}{exc_str}")
+    console.log(msg, _stack_offset=_stack_offset)
     try:
         get_file_logger().error(f"[ERROR] {clean_rich_markup(message)}{exc_str}")
     except Exception:
@@ -284,7 +364,8 @@ def log_error(message: str, exception: str = "", _stack_offset: int = 2):
 
 def log_warning(message: str, _stack_offset: int = 2):
     """Logs a warning message with yellow styling and writes to log file."""
-    console.log(f"[bold yellow]:warning: [Warning]:[/bold yellow] {message}", _stack_offset=_stack_offset)
+    msg = em(f"[bold yellow]:warning: [Warning]:[/bold yellow] {message}")
+    console.log(msg, _stack_offset=_stack_offset)
     try:
         get_file_logger().warning(f"[WARNING] {clean_rich_markup(message)}")
     except Exception:
@@ -293,7 +374,7 @@ def log_warning(message: str, _stack_offset: int = 2):
 def log_data(data, title: str = "", _stack_offset: int = 2, **kwargs):
     """Logs data collections with Rich syntax highlighting and writes to file."""
     if title:
-        console.log(f"[bold cyan]{title}:[/bold cyan]", data, _stack_offset=_stack_offset, **kwargs)
+        console.log(f"[bold cyan]{em(title)}:[/bold cyan]", data, _stack_offset=_stack_offset, **kwargs)
         try:
             get_file_logger().info(f"{title}: {data}")
         except Exception:
@@ -330,7 +411,7 @@ def log_sleep(seconds: int, message: str = "Sleeping for safety / cooldown", _st
 
     with Progress(
         SpinnerColumn(spinner_name="dots", style="bold cyan"),
-        TextColumn("[bold yellow]:sleeping: {task.description}[/bold yellow]"),
+        TextColumn(em("[bold yellow]:sleeping: {task.description}[/bold yellow]")),
         BarColumn(bar_width=20, style="bright_black", complete_style="bold green", finished_style="bold green"),
         TextColumn("[bold cyan]{task.fields[remaining_display]}[/bold cyan] remaining"),
         TimeRemainingColumn(),
@@ -358,9 +439,9 @@ def log_sleep(seconds: int, message: str = "Sleeping for safety / cooldown", _st
 
 def show_banner(title: str, subtitle: str = ""):
     """Displays a stylized Rich banner for CLI start using Rich emoji markup and rounded borders."""
-    text_content = f":robot: [bold bright_cyan]{title}[/bold bright_cyan]\n"
+    text_content = em(f":robot: [bold bright_cyan]{title}[/bold bright_cyan]\n")
     if subtitle:
-        text_content += f"[dim bright_white]:sparkles: {subtitle}[/dim bright_white]\n"
+        text_content += em(f"[dim bright_white]:sparkles: {subtitle}[/dim bright_white]\n")
     console.print(Panel(
         Text.from_markup(text_content.strip()),
         box=box.ROUNDED,
@@ -376,7 +457,7 @@ def show_banner(title: str, subtitle: str = ""):
 def show_section_divider(title: str = "", style: str = "bold magenta"):
     """Draws an elegant Rich Rule divider across the console."""
     if title:
-        console.print(Rule(title, style=style))
+        console.print(Rule(em(title), style=style))
     else:
         console.print(Rule(style=style))
 
@@ -389,11 +470,11 @@ def show_stats_card(title: str, stats: dict, border_style: str = "cyan"):
     grid.add_column(style="bold yellow", justify="right")
 
     for k, v in stats.items():
-        grid.add_row(k, str(v))
+        grid.add_row(em(k), em(str(v)))
 
     panel = Panel(
         grid,
-        title=f":bar_chart: [bold]{title}[/bold]",
+        title=em(f":bar_chart: [bold]{title}[/bold]"),
         box=box.ROUNDED,
         border_style=border_style,
         padding=(1, 2),
@@ -404,24 +485,25 @@ def show_stats_card(title: str, stats: dict, border_style: str = "cyan"):
 def show_user_table(users: list, title: str = "Target Users"):
     """Renders a Rich table of Instagram users with Rich emoji icons and rounded borders."""
     table = Table(
-        title=f":clipboard: [bold cyan]{title}[/bold cyan] ([bold yellow]{len(users)}[/bold yellow] users)",
+        title=em(f":clipboard: [bold cyan]{title}[/bold cyan] ([bold yellow]{len(users)}[/bold yellow] users)"),
         box=box.ROUNDED,
         border_style="cyan",
         header_style="bold magenta"
     )
-    table.add_column(":hash: #", justify="center", style="cyan", no_wrap=True, width=5)
-    table.add_column(":id: User ID (PK)", style="yellow", justify="center")
-    table.add_column(":bust_in_silhouette: Username", style="bold green")
-    table.add_column(":name_badge: Full Name", style="white")
-    table.add_column(":lock: Privacy", justify="center")
+    table.add_column(em(":hash: #"), justify="center", style="cyan", no_wrap=True, width=5)
+    table.add_column(em(":id: User ID (PK)"), style="yellow", justify="center")
+    table.add_column(em(":bust_in_silhouette: Username"), style="bold green")
+    table.add_column(em(":name_badge: Full Name"), style="white")
+    table.add_column(em(":lock: Privacy"), justify="center")
 
     for i, user in enumerate(users, start=1):
         uid = str(getattr(user, 'pk', '-'))
         uname = str(getattr(user, 'username', '-'))
         fname = str(getattr(user, 'full_name', '-'))
         is_priv = getattr(user, 'is_private', False)
-        privacy = "[red]:lock: Private[/red]" if is_priv else "[green]:globe_with_meridians: Public[/green]"
+        privacy = em("[red]:lock: Private[/red]") if is_priv else em("[green]:globe_with_meridians: Public[/green]")
         table.add_row(str(i), uid, f"@{uname}", fix_persian(fname) if fname else "[dim]-[/dim]", privacy)
 
     console.print(table)
+
 

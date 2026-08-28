@@ -28,7 +28,8 @@ from src.utils import (
     ask_yes_no,
     ask_delay_range,
     ask_choice_or_custom,
-    register_graceful_shutdown
+    register_graceful_shutdown,
+    em
 )
 
 def format_relative_time(timestamp: float) -> str:
@@ -50,22 +51,22 @@ def format_relative_time(timestamp: float) -> str:
 def display_timeline_posts_table(posts: list) -> None:
     """Renders a beautiful Rich Table showing all timeline posts sorted newest to oldest."""
     table = Table(
-        title=f":newspaper: [bold cyan]{fix_persian('پست‌های استخراج‌شده فید تایم‌لاین')}[/bold cyan] [dim](Newest :arrow_right: Oldest)[/dim]",
+        title=em(f":newspaper: [bold cyan]{fix_persian('پست‌های استخراج‌شده فید تایم‌لاین')}[/bold cyan] [dim](Newest :arrow_right: Oldest)[/dim]"),
         box=box.ROUNDED,
         show_header=True,
         header_style="bold magenta",
         expand=True
     )
-    table.add_column(":hash: #", style="dim", width=4, justify="center")
-    table.add_column(":bust_in_silhouette: Author", style="bold cyan", width=18)
-    table.add_column(":clock1: Published", style="green", width=14, justify="center")
-    table.add_column(":chart_with_upwards_trend: Stats", style="yellow", width=16, justify="center")
-    table.add_column(":memo: Caption", style="white")
-    table.add_column(":pushpin: Status", style="bold", width=18, justify="center")
+    table.add_column(em(":hash: #"), style="dim", width=4, justify="center")
+    table.add_column(em(":bust_in_silhouette: Author"), style="bold cyan", width=18)
+    table.add_column(em(":clock1: Published"), style="green", width=14, justify="center")
+    table.add_column(em(":chart_with_upwards_trend: Stats"), style="yellow", width=16, justify="center")
+    table.add_column(em(":memo: Caption"), style="white")
+    table.add_column(em(":pushpin: Status"), style="bold", width=18, justify="center")
 
     for i, post in enumerate(posts, start=1):
         rel_time = format_relative_time(post["taken_at_ts"])
-        stats_str = f":heart: {post.get('like_count', 0)} | :speech_balloon: {post.get('comment_count', 0)}"
+        stats_str = em(f":heart: {post.get('like_count', 0)} | :speech_balloon: {post.get('comment_count', 0)}")
         caption = (post.get("caption_text", "") or "").replace("\n", " ")
         if len(caption) > 40:
             caption = caption[:37] + "..."
@@ -73,9 +74,9 @@ def display_timeline_posts_table(posts: list) -> None:
         
         is_already_liked = post.get("has_liked", False) or has_recent_interaction(post["pk"], "like")
         if is_already_liked:
-            status = "[dim green]:white_check_mark: Already Liked[/dim green]"
+            status = em("[dim green]:white_check_mark: Already Liked[/dim green]")
         else:
-            status = "[bold yellow]:hourglass: Pending Like[/bold yellow]"
+            status = em("[bold yellow]:hourglass: Pending Like[/bold yellow]")
 
         table.add_row(
             str(i),

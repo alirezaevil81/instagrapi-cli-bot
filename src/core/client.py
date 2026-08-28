@@ -43,7 +43,8 @@ from src.utils.console import (
     log_success,
     log_error,
     log_warning,
-    console
+    console,
+    em
 )
 
 def default_challenge_code_handler(username: str, choice_method=None) -> str:
@@ -97,31 +98,31 @@ class Bot(Client):
             if saved_sessions:
                 choices = [
                     questionary.Choice(
-                        title=f":bust_in_silhouette: @{u}\n   ↪ {fix_persian('نشست و سشن ذخیره‌شده')}",
+                        title=em(f":bust_in_silhouette: @{u}\n   ↪ {fix_persian('نشست و سشن ذخیره‌شده')}"),
                         value=u
                     ) for u in saved_sessions
                 ]
                 choices.append(
                     questionary.Choice(
-                        title=f":key: Login via SessionID Cookie\n   ↪ {fix_persian('ورود مستقیم با SessionID کوکی اینستاگرام')}",
+                        title=em(f":key: Login via SessionID Cookie\n   ↪ {fix_persian('ورود مستقیم با SessionID کوکی اینستاگرام')}"),
                         value="__sessionid__"
                     )
                 )
                 choices.append(
                     questionary.Choice(
-                        title=f":heavy_plus_sign: Login with new account\n   ↪ {fix_persian('ورود با اکانت جدید')}",
+                        title=em(f":heavy_plus_sign: Login with new account\n   ↪ {fix_persian('ورود با اکانت جدید')}"),
                         value="__new__"
                     )
                 )
                 choices.append(
                     questionary.Choice(
-                        title=f":door: Exit\n   ↪ {fix_persian('انصراف و خروج')}",
+                        title=em(f":door: Exit\n   ↪ {fix_persian('انصراف و خروج')}"),
                         value="__exit__"
                     )
                 )
 
                 selected = questionary.select(
-                    "Select an Instagram account / session to login:\n  ↪ " + fix_persian("یک اکانت یا سشن را جهت ورود انتخاب کنید:"),
+                    em("Select an Instagram account / session to login:\n  ↪ " + fix_persian("یک اکانت یا سشن را جهت ورود انتخاب کنید:")),
                     choices=choices
                 ).ask()
 
@@ -184,18 +185,18 @@ class Bot(Client):
                     login_via_session = True
             else:
                 login_method = questionary.select(
-                    "Select login method:\n  ↪ " + fix_persian("روش ورود به اکانت را انتخاب کنید:"),
+                    em("Select login method:\n  ↪ " + fix_persian("روش ورود به اکانت را انتخاب کنید:")),
                     choices=[
                         questionary.Choice(
-                            title=f":bust_in_silhouette: Username & Password\n   ↪ {fix_persian('ورود با نام‌کاربری و رمز عبور')}",
+                            title=em(f":bust_in_silhouette: Username & Password\n   ↪ {fix_persian('ورود با نام‌کاربری و رمز عبور')}"),
                             value="password"
                         ),
                         questionary.Choice(
-                            title=f":key: SessionID Cookie (Recommended)\n   ↪ {fix_persian('ورود مستقیم با SessionID کوکی اینستاگرام (پیشنهادی)')}",
+                            title=em(f":key: SessionID Cookie (Recommended)\n   ↪ {fix_persian('ورود مستقیم با SessionID کوکی اینستاگرام (پیشنهادی)')}"),
                             value="sessionid"
                         ),
                         questionary.Choice(
-                            title=f":door: Exit\n   ↪ {fix_persian('انصراف و خروج')}",
+                            title=em(f":door: Exit\n   ↪ {fix_persian('انصراف و خروج')}"),
                             value="exit"
                         ),
                     ]

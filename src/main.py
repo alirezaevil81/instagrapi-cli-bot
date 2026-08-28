@@ -6,7 +6,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 import questionary
 from src.database.engine import init_db
-from src.utils.console import show_banner, console, fix_persian
+from src.utils.console import show_banner, console, fix_persian, em
 from src.utils.signals import register_graceful_shutdown
 from src.services.followers_liker import main as run_followers_bot
 from src.services.post_liker import main as run_post_likers_bot
@@ -32,22 +32,22 @@ def main():
     show_banner("Instagram Bot Hub", "Select bot mode to run & automate your Instagram actions")
 
     choice = questionary.select(
-        "Select bot mode to run:\n  ↪ " + fix_persian("انتخاب ربات برای اجرا:"),
+        em("Select bot mode to run:\n  ↪ " + fix_persian("انتخاب ربات برای اجرا:")),
         choices=[
             questionary.Choice(
-                title=f":newspaper: 1. Timeline Feed Liker (Continuous Feed Liker with Auto-Refresh)\n   ↪ {fix_persian('لایک مداوم پست‌های فید تایم‌لاین با رفرش خودکار')}",
+                title=em(f":newspaper: 1. Timeline Feed Liker (Continuous Feed Liker with Auto-Refresh)\n   ↪ {fix_persian('لایک مداوم پست‌های فید تایم‌لاین با رفرش خودکار')}"),
                 value="timeline"
             ),
             questionary.Choice(
-                title=f":busts_in_silhouette: 2. Following Feed Liker (Automated Liker for Accounts You Follow)\n   ↪ {fix_persian('لایک خودکار جدیدترین پست‌های فالووینگ‌ها')}",
+                title=em(f":busts_in_silhouette: 2. Following Feed Liker (Automated Liker for Accounts You Follow)\n   ↪ {fix_persian('لایک خودکار جدیدترین پست‌های فالووینگ‌ها')}"),
                 value="followers"
             ),
             questionary.Choice(
-                title=f":target: 3. Post Likers Bot (Extract Likers & Automated Engagement)\n   ↪ {fix_persian('استخراج و تعامل با لایک‌کنندگان پست هدف')}",
+                title=em(f":target: 3. Post Likers Bot (Extract Likers & Automated Engagement)\n   ↪ {fix_persian('استخراج و تعامل با لایک‌کنندگان پست هدف')}"),
                 value="posts"
             ),
             questionary.Choice(
-                title=f":door: 4. Exit\n   ↪ {fix_persian('خروج از برنامه')}",
+                title=em(f":door: 4. Exit\n   ↪ {fix_persian('خروج از برنامه')}"),
                 value="exit"
             ),
         ]
@@ -60,7 +60,8 @@ def main():
     elif choice == "posts":
         run_post_likers_bot()
     else:
-        console.print(f"\n[bold yellow]:wave: {fix_persian('با موفقیت خارج شدید.')} Goodbye![/bold yellow]\n")
+        console.print(em(f"\n[bold yellow]:wave: {fix_persian('با موفقیت خارج شدید.')} Goodbye![/bold yellow]\n"))
+
 
 if __name__ == "__main__":
     main()

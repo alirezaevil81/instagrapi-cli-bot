@@ -1,5 +1,6 @@
 from src.utils.console import (
     console,
+    em,
     log_print,
     log_success,
     log_error,
@@ -23,6 +24,7 @@ from src.utils.signals import register_graceful_shutdown
 
 __all__ = [
     "console",
+    "em",
     "log_print",
     "log_success",
     "log_error",
@@ -44,3 +46,4 @@ __all__ = [
     "clean_rich_markup",
     "register_graceful_shutdown"
 ]
+
