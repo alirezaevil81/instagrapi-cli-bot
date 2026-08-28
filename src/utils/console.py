@@ -77,13 +77,14 @@ def ask_yes_no(english_question: str, persian_question: str, default: bool = Tru
     """
     import questionary
     prompt_text = f"{english_question}\n  ↪ {fix_persian(persian_question)}"
+    yes_choice = questionary.Choice(title=f"✅ Yes ({fix_persian('بله')})", value=True)
+    no_choice = questionary.Choice(title=f"❌ No ({fix_persian('خیر')})", value=False)
+    choices = [yes_choice, no_choice]
+
     choice = questionary.select(
         prompt_text,
-        choices=[
-            questionary.Choice(title=f"✅ Yes ({fix_persian('بله')})", value=True),
-            questionary.Choice(title=f"❌ No ({fix_persian('خیر')})", value=False),
-        ],
-        default=questionary.Choice(title=f"✅ Yes ({fix_persian('بله')})", value=True) if default else questionary.Choice(title=f"❌ No ({fix_persian('خیر')})", value=False)
+        choices=choices,
+        default=yes_choice if default else no_choice
     ).ask()
     return default if choice is None else bool(choice)
 
@@ -101,17 +102,16 @@ def ask_delay_range(action_name: str = "likes", default_range: list = None) -> l
         f"  ↪ {fix_persian(f'انتخاب بازه تاخیر و وقفه بین {action_name} به ثانیه')}:"
     )
 
-    choices = [
-        questionary.Choice(title=f"⚡ 25 - 50 seconds ({fix_persian('پیشنهادی سریع/متوسط')})", value="25_50"),
-        questionary.Choice(title=f"🛡️ 60 - 90 seconds ({fix_persian('پیشنهادی امن و مطمئن')})", value="60_90"),
-        questionary.Choice(title=f"⏳ 90 - 150 seconds ({fix_persian('خیلی امن و محافظه‌کارانه')})", value="90_150"),
-        questionary.Choice(title=f"⚙️ Custom interval... ({fix_persian('تنظیم دلخواه و دستی')})", value="custom"),
-    ]
+    c_25_50 = questionary.Choice(title=f"⚡ 25 - 50 seconds ({fix_persian('پیشنهادی سریع/متوسط')})", value="25_50")
+    c_60_90 = questionary.Choice(title=f"🛡️ 60 - 90 seconds ({fix_persian('پیشنهادی امن و مطمئن')})", value="60_90")
+    c_90_150 = questionary.Choice(title=f"⏳ 90 - 150 seconds ({fix_persian('خیلی امن و محافظه‌کارانه')})", value="90_150")
+    c_custom = questionary.Choice(title=f"⚙️ Custom interval... ({fix_persian('تنظیم دلخواه و دستی')})", value="custom")
+    choices = [c_25_50, c_60_90, c_90_150, c_custom]
 
     selected = questionary.select(
         prompt_text,
         choices=choices,
-        default="60_90"
+        default=c_60_90
     ).ask()
 
     if selected == "25_50":
