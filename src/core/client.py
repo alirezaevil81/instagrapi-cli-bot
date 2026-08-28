@@ -424,6 +424,7 @@ class Bot(Client):
         cutoff_ts = now_ts - (cutoff_hours * 3600) if cutoff_hours > 0 else 0
 
         max_id = None
+        feed_seen_posts = []
         consecutive_old_pages = 0
 
         for page in range(1, max_pages + 1):
@@ -434,7 +435,11 @@ class Bot(Client):
                 feed_data = None
                 try:
                     if max_id:
-                        feed_data = self.get_timeline_feed(reason=reason, max_id=str(max_id))
+                        feed_data = self.get_timeline_feed(
+                            reason=reason,
+                            max_id=str(max_id),
+                            seen_posts=feed_seen_posts if feed_seen_posts else None
+                        )
                     else:
                         feed_data = self.get_timeline_feed(reason=reason)
                 except Exception as req_err:
@@ -465,22 +470,30 @@ class Bot(Client):
                 page_new_count = 0
                 page_old_count = 0
 
-                def extract_medias(it):
+                def extract_all_medias(it):
                     if not isinstance(it, dict):
                         return [it]
                     found = []
+                    # 1. Direct media_or_ad
                     if isinstance(it.get("media_or_ad"), dict):
                         found.append(it["media_or_ad"])
-                    elif isinstance(it.get("clips_item"), dict) and isinstance(it["clips_item"].get("media"), dict):
-                        found.append(it["clips_item"]["media"])
-                    elif isinstance(it.get("media"), dict):
+                    # 2. Clips item
+                    if isinstance(it.get("clips_item"), dict):
+                        clip_media = it["clips_item"].get("media") or it["clips_item"]
+                        if isinstance(clip_media, dict):
+                            found.append(clip_media)
+                    # 3. Direct media
+                    if isinstance(it.get("media"), dict):
                         found.append(it["media"])
-                    elif isinstance(it.get("items"), list):
+                    # 4. Nested items / carousel
+                    if isinstance(it.get("items"), list):
                         for sub_it in it["items"]:
-                            found.extend(extract_medias(sub_it))
-                    elif "pk" in it or "id" in it or "code" in it:
-                        found.append(it)
-                    else:
+                            found.extend(extract_all_medias(sub_it))
+                    if isinstance(it.get("carousel_media"), list):
+                        for sub_it in it["carousel_media"]:
+                            found.extend(extract_all_medias(sub_it))
+                    # 5. Fallback: it has pk/id/code or it's a raw dict
+                    if not found and ("pk" in it or "id" in it or "code" in it):
                         found.append(it)
                     return found
 
@@ -488,7 +501,7 @@ class Bot(Client):
                     if not item:
                         continue
 
-                    candidate_medias = extract_medias(item)
+                    candidate_medias = extract_all_medias(item)
                     for media_data in candidate_medias:
                         if not media_data:
                             continue
@@ -499,6 +512,8 @@ class Bot(Client):
                             or (media_data.get("id") if isinstance(media_data, dict) else None)
                             or getattr(media_data, "pk", None)
                             or getattr(media_data, "id", None)
+                            or (item.get("pk") if isinstance(item, dict) else None)
+                            or (item.get("id") if isinstance(item, dict) else None)
                         )
                         
                         if raw_pk is None or str(raw_pk).strip().lower() in ("", "none", "0"):
@@ -509,6 +524,10 @@ class Bot(Client):
                             continue
 
                         pk = pk_str
+
+                        # Track in feed_seen_posts for IG pagination cursor
+                        if pk not in feed_seen_posts:
+                            feed_seen_posts.append(pk)
 
                         if pk in seen_pks:
                             continue
