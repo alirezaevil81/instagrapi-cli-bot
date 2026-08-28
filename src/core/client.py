@@ -421,7 +421,6 @@ class Bot(Client):
                     feed_data.get("feed_items")
                     or feed_data.get("items")
                     or feed_data.get("ranked_items")
-                    or feed_data.get("tray")
                     or []
                 )
 
@@ -451,14 +450,26 @@ class Bot(Client):
                     else:
                         media_data = item
 
-                    # Extract PK / ID
-                    pk = str(
-                        getattr(media_data, "pk", "")
-                        or (media_data.get("pk") if isinstance(media_data, dict) else "")
-                        or (media_data.get("id") if isinstance(media_data, dict) else "")
-                    ).split("_")[0]
+                    # Extract PK / ID (must be non-empty digits)
+                    raw_pk = (
+                        getattr(media_data, "pk", None)
+                        if not isinstance(media_data, dict)
+                        else (
+                            media_data.get("pk")
+                            or media_data.get("id")
+                        )
+                    )
+                    
+                    if raw_pk is None or raw_pk == "" or str(raw_pk).lower() == "none":
+                        continue
 
-                    if not pk or pk in seen_pks:
+                    pk_str = str(raw_pk).split("_")[0].strip()
+                    if not pk_str or not pk_str.isdigit():
+                        continue
+
+                    pk = pk_str
+
+                    if pk in seen_pks:
                         continue
 
                     # Extract timestamp (supports int, float, string, micro/milliseconds, datetime)
@@ -519,7 +530,7 @@ class Bot(Client):
                     post_obj = {
                         "pk": pk,
                         "code": code,
-                        "author_username": author_username,
+                        "author_username": author_username or "instagram_user",
                         "author_pk": author_pk,
                         "author_full_name": author_full_name,
                         "taken_at_ts": taken_at_ts,
@@ -539,7 +550,7 @@ class Bot(Client):
                     else:
                         page_old_count += 1
 
-                log_print(f"Feed Page [bold cyan]{page}[/bold cyan]: {len(raw_items)} items retrieved | [bold green]{page_new_count}[/bold green] within {cutoff_hours:g}h window | [dim]{page_old_count} older[/dim]")
+                log_print(f"Feed Page [bold cyan]{page}[/bold cyan]: {len(raw_items)} items retrieved | [bold green]{page_new_count}[/bold green] valid posts | [dim]{page_old_count} older[/dim]")
 
                 # Check pagination cursor
                 next_max_id = feed_data.get("next_max_id")
@@ -608,14 +619,20 @@ class Bot(Client):
         # 2. View stories if requested
         if view_stories:
             try:
-                tray = self.get_timeline_stories()
+                # Use user_stories or get_timeline_feed stories tray
+                tray = None
+                if hasattr(self, "get_timeline_stories"):
+                    tray = self.get_timeline_stories()
+                elif hasattr(self, "reels_tray"):
+                    tray = self.reels_tray()
+
                 if tray and isinstance(tray, list):
                     story_count = 0
                     for story_tray in tray[:3]:
                         items = getattr(story_tray, 'items', []) or []
                         for story_item in items[:2]:
                             story_pk = str(getattr(story_item, 'pk', ''))
-                            if story_pk:
+                            if story_pk and story_pk.isdigit():
                                 self.media_seen([story_pk])
                                 story_count += 1
                                 sleep_sec = randint(1, 3)
