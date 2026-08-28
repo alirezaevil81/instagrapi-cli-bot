@@ -433,19 +433,25 @@ class Bot(Client):
                 for item in raw_items:
                     media_data = None
                     if isinstance(item, dict):
-                        # Skip sponsored / ads
-                        if (
-                            item.get("is_ad")
-                            or item.get("injected")
-                            or item.get("ad_action")
-                            or item.get("hide_reasons_v2")
-                        ):
+                        # Accurate ad detection (do not filter on standard post UI attributes like hide_reasons_v2)
+                        is_ad = bool(
+                            item.get("is_ad") is True
+                            or item.get("is_sponsored") is True
+                            or item.get("injected") is not None
+                            or str(item.get("ad_id", "")).strip() != ""
+                        )
+                        if is_ad:
                             continue
                         
-                        media_data = item.get("media_or_ad") or item.get("media") or item
+                        media_data = (
+                            item.get("media_or_ad")
+                            or (item.get("clips_item", {}) or {}).get("media")
+                            or item.get("media")
+                            or item
+                        )
                         if not isinstance(media_data, dict):
                             continue
-                        if media_data.get("is_ad") or media_data.get("ad_action") or media_data.get("link"):
+                        if media_data.get("is_ad") is True or media_data.get("is_sponsored") is True:
                             continue
                     else:
                         media_data = item
@@ -457,6 +463,8 @@ class Bot(Client):
                         else (
                             media_data.get("pk")
                             or media_data.get("id")
+                            or (item.get("pk") if isinstance(item, dict) else None)
+                            or (item.get("id") if isinstance(item, dict) else None)
                         )
                     )
                     
@@ -502,10 +510,15 @@ class Bot(Client):
                         # Fallback to current timestamp if unavailable
                         taken_at_ts = now_ts
 
-                    # Extract author info
-                    user_info = getattr(media_data, "user", {}) if not isinstance(media_data, dict) else media_data.get("user", {})
+                    # Extract author info (supports multiple payload schemas)
+                    user_info = (
+                        (getattr(media_data, "user", {}) if not isinstance(media_data, dict) else media_data.get("user", {}))
+                        or (getattr(media_data, "owner", {}) if not isinstance(media_data, dict) else media_data.get("owner", {}))
+                        or (item.get("user", {}) if isinstance(item, dict) else {})
+                        or (item.get("owner", {}) if isinstance(item, dict) else {})
+                    )
                     author_username = getattr(user_info, "username", "") if not isinstance(user_info, dict) else user_info.get("username", "")
-                    author_pk = str(getattr(user_info, "pk", "") if not isinstance(user_info, dict) else user_info.get("pk", ""))
+                    author_pk = str(getattr(user_info, "pk", "") if not isinstance(user_info, dict) else (user_info.get("pk") or user_info.get("id") or ""))
                     author_full_name = getattr(user_info, "full_name", "") if not isinstance(user_info, dict) else user_info.get("full_name", "")
 
                     # Extract like status
