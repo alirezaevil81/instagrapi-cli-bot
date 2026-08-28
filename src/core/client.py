@@ -468,13 +468,9 @@ class Bot(Client):
                 def extract_medias(it):
                     if not isinstance(it, dict):
                         return [it]
-                    if it.get("is_ad") is True or it.get("is_sponsored") is True:
-                        return []
                     found = []
                     if isinstance(it.get("media_or_ad"), dict):
-                        m = it["media_or_ad"]
-                        if not (m.get("is_ad") is True or m.get("is_sponsored") is True):
-                            found.append(m)
+                        found.append(it["media_or_ad"])
                     elif isinstance(it.get("clips_item"), dict) and isinstance(it["clips_item"].get("media"), dict):
                         found.append(it["clips_item"]["media"])
                     elif isinstance(it.get("media"), dict):
@@ -483,6 +479,8 @@ class Bot(Client):
                         for sub_it in it["items"]:
                             found.extend(extract_medias(sub_it))
                     elif "pk" in it or "id" in it or "code" in it:
+                        found.append(it)
+                    else:
                         found.append(it)
                     return found
 
@@ -495,7 +493,7 @@ class Bot(Client):
                         if not media_data:
                             continue
 
-                        # Extract PK / ID (must be non-empty digits)
+                        # Extract PK / ID
                         raw_pk = (
                             (media_data.get("pk") if isinstance(media_data, dict) else None)
                             or (media_data.get("id") if isinstance(media_data, dict) else None)
@@ -507,7 +505,7 @@ class Bot(Client):
                             continue
 
                         pk_str = str(raw_pk).split("_")[0].strip()
-                        if not pk_str or not pk_str.isdigit():
+                        if not pk_str:
                             continue
 
                         pk = pk_str
@@ -515,7 +513,7 @@ class Bot(Client):
                         if pk in seen_pks:
                             continue
 
-                        # Extract timestamp (supports int, float, string, micro/milliseconds, datetime)
+                        # Extract timestamp
                         taken_at_raw = (
                             getattr(media_data, "taken_at", None)
                             if not isinstance(media_data, dict)
@@ -535,17 +533,15 @@ class Bot(Client):
                         elif isinstance(taken_at_raw, str) and taken_at_raw.replace(".", "", 1).isdigit():
                             taken_at_ts = float(taken_at_raw)
 
-                        # Handle microsecond / millisecond timestamp formats
                         if taken_at_ts:
-                            if taken_at_ts > 100_000_000_000_000: # Microseconds
+                            if taken_at_ts > 100_000_000_000_000:
                                 taken_at_ts = taken_at_ts / 1_000_000
-                            elif taken_at_ts > 100_000_000_000: # Milliseconds
+                            elif taken_at_ts > 100_000_000_000:
                                 taken_at_ts = taken_at_ts / 1_000
                         else:
-                            # Fallback to current timestamp if unavailable
                             taken_at_ts = now_ts
 
-                        # Extract author info (supports multiple payload schemas)
+                        # Extract author info
                         user_info = (
                             (getattr(media_data, "user", {}) if not isinstance(media_data, dict) else media_data.get("user", {}))
                             or (getattr(media_data, "owner", {}) if not isinstance(media_data, dict) else media_data.get("owner", {}))
@@ -554,10 +550,9 @@ class Bot(Client):
                         author_pk = str(getattr(user_info, "pk", "") if not isinstance(user_info, dict) else (user_info.get("pk") or user_info.get("id") or ""))
                         author_full_name = getattr(user_info, "full_name", "") if not isinstance(user_info, dict) else user_info.get("full_name", "")
 
-                        # Extract like status
+                        # Extract like status (only check if liked or not)
                         has_liked = bool(getattr(media_data, "has_liked", False) if not isinstance(media_data, dict) else media_data.get("has_liked", False))
 
-                        # Extract caption text
                         caption_raw = getattr(media_data, "caption", "") if not isinstance(media_data, dict) else media_data.get("caption")
                         caption_text = ""
                         if isinstance(caption_raw, dict):
@@ -588,18 +583,10 @@ class Bot(Client):
                         }
 
                         all_scanned_posts.append(post_obj)
+                        page_new_count += 1
+                        posts.append(post_obj)
 
-                        # Check cutoff condition
-                        if cutoff_hours <= 0 or taken_at_ts >= cutoff_ts:
-                            page_new_count += 1
-                            posts.append(post_obj)
-                        else:
-                            page_old_count += 1
-
-                if cutoff_hours > 0:
-                    log_print(f"Feed Page [bold cyan]{page}[/bold cyan]: {len(raw_items)} items retrieved | [bold green]{page_new_count}[/bold green] valid posts | [dim]{page_old_count} older[/dim]")
-                else:
-                    log_print(f"Feed Page [bold cyan]{page}[/bold cyan]: {len(raw_items)} items retrieved | [bold green]{page_new_count}[/bold green] valid posts")
+                log_print(f"Feed Page [bold cyan]{page}[/bold cyan]: {len(raw_items)} items retrieved | [bold green]{page_new_count}[/bold green] posts found")
 
                 # Check pagination cursor
                 next_max_id = (
