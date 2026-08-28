@@ -428,7 +428,7 @@ class Bot(Client):
 
         for page in range(1, max_pages + 1):
             try:
-                reason = "pull_to_refresh" if page == 1 else "paginating"
+                reason = "pull_to_refresh" if page == 1 else "pagination"
                 
                 # Fetch timeline feed using library or direct private request
                 feed_data = None
@@ -438,7 +438,6 @@ class Bot(Client):
                     else:
                         feed_data = self.get_timeline_feed(reason=reason)
                 except Exception as req_err:
-                    log_warning(f"Standard get_timeline_feed page {page} notice: {req_err}")
                     # Fallback to direct private request if mixin had issues
                     try:
                         params = {"reason": reason}
@@ -466,144 +465,136 @@ class Bot(Client):
                 page_new_count = 0
                 page_old_count = 0
 
+                def extract_medias(it):
+                    if not isinstance(it, dict):
+                        return [it]
+                    if it.get("is_ad") is True or it.get("is_sponsored") is True:
+                        return []
+                    found = []
+                    if isinstance(it.get("media_or_ad"), dict):
+                        m = it["media_or_ad"]
+                        if not (m.get("is_ad") is True or m.get("is_sponsored") is True):
+                            found.append(m)
+                    elif isinstance(it.get("clips_item"), dict) and isinstance(it["clips_item"].get("media"), dict):
+                        found.append(it["clips_item"]["media"])
+                    elif isinstance(it.get("media"), dict):
+                        found.append(it["media"])
+                    elif isinstance(it.get("items"), list):
+                        for sub_it in it["items"]:
+                            found.extend(extract_medias(sub_it))
+                    elif "pk" in it or "id" in it or "code" in it:
+                        found.append(it)
+                    return found
+
                 for item in raw_items:
                     if not item:
                         continue
 
-                    media_data = None
-                    if isinstance(item, dict):
-                        # Filter true ads
-                        if item.get("is_ad") is True or item.get("is_sponsored") is True:
-                            continue
-                        
-                        ad_id = item.get("ad_id")
-                        if ad_id and str(ad_id).strip() not in ("", "None", "0"):
+                    candidate_medias = extract_medias(item)
+                    for media_data in candidate_medias:
+                        if not media_data:
                             continue
 
-                        # Extract media dictionary from any common timeline wrapper
-                        if isinstance(item.get("media_or_ad"), dict):
-                            media_data = item["media_or_ad"]
-                        elif isinstance(item.get("clips_item"), dict) and isinstance(item["clips_item"].get("media"), dict):
-                            media_data = item["clips_item"]["media"]
-                        elif isinstance(item.get("media"), dict):
-                            media_data = item["media"]
-                        elif "pk" in item or "id" in item or "code" in item:
-                            media_data = item
-                        else:
-                            # Non-media items (e.g. story_tray, explore_story, suggested_users, end_of_feed_demarcator)
-                            continue
-
-                        if not isinstance(media_data, dict):
-                            continue
-                        if media_data.get("is_ad") is True or media_data.get("is_sponsored") is True:
-                            continue
-                    else:
-                        media_data = item
-
-                    # Extract PK / ID (must be non-empty digits)
-                    raw_pk = (
-                        (media_data.get("pk") if isinstance(media_data, dict) else None)
-                        or (media_data.get("id") if isinstance(media_data, dict) else None)
-                        or getattr(media_data, "pk", None)
-                        or getattr(media_data, "id", None)
-                        or (item.get("pk") if isinstance(item, dict) else None)
-                        or (item.get("id") if isinstance(item, dict) else None)
-                    )
-                    
-                    if raw_pk is None or str(raw_pk).strip().lower() in ("", "none", "0"):
-                        continue
-
-                    pk_str = str(raw_pk).split("_")[0].strip()
-                    if not pk_str or not pk_str.isdigit():
-                        continue
-
-                    pk = pk_str
-
-                    if pk in seen_pks:
-                        continue
-
-                    # Extract timestamp (supports int, float, string, micro/milliseconds, datetime)
-                    taken_at_raw = (
-                        getattr(media_data, "taken_at", None)
-                        if not isinstance(media_data, dict)
-                        else (
-                            media_data.get("taken_at")
-                            or media_data.get("device_timestamp")
-                            or (media_data.get("caption", {}) or {}).get("created_at")
-                            or (media_data.get("caption", {}) or {}).get("created_at_utc")
+                        # Extract PK / ID (must be non-empty digits)
+                        raw_pk = (
+                            (media_data.get("pk") if isinstance(media_data, dict) else None)
+                            or (media_data.get("id") if isinstance(media_data, dict) else None)
+                            or getattr(media_data, "pk", None)
+                            or getattr(media_data, "id", None)
                         )
-                    )
+                        
+                        if raw_pk is None or str(raw_pk).strip().lower() in ("", "none", "0"):
+                            continue
 
-                    taken_at_ts = None
-                    if isinstance(taken_at_raw, datetime):
-                        taken_at_ts = taken_at_raw.timestamp()
-                    elif isinstance(taken_at_raw, (int, float)):
-                        taken_at_ts = float(taken_at_raw)
-                    elif isinstance(taken_at_raw, str) and taken_at_raw.replace(".", "", 1).isdigit():
-                        taken_at_ts = float(taken_at_raw)
+                        pk_str = str(raw_pk).split("_")[0].strip()
+                        if not pk_str or not pk_str.isdigit():
+                            continue
 
-                    # Handle microsecond / millisecond timestamp formats
-                    if taken_at_ts:
-                        if taken_at_ts > 100_000_000_000_000: # Microseconds
-                            taken_at_ts = taken_at_ts / 1_000_000
-                        elif taken_at_ts > 100_000_000_000: # Milliseconds
-                            taken_at_ts = taken_at_ts / 1_000
-                    else:
-                        # Fallback to current timestamp if unavailable
-                        taken_at_ts = now_ts
+                        pk = pk_str
 
-                    # Extract author info (supports multiple payload schemas)
-                    user_info = (
-                        (getattr(media_data, "user", {}) if not isinstance(media_data, dict) else media_data.get("user", {}))
-                        or (getattr(media_data, "owner", {}) if not isinstance(media_data, dict) else media_data.get("owner", {}))
-                        or (item.get("user", {}) if isinstance(item, dict) else {})
-                        or (item.get("owner", {}) if isinstance(item, dict) else {})
-                    )
-                    author_username = getattr(user_info, "username", "") if not isinstance(user_info, dict) else user_info.get("username", "")
-                    author_pk = str(getattr(user_info, "pk", "") if not isinstance(user_info, dict) else (user_info.get("pk") or user_info.get("id") or ""))
-                    author_full_name = getattr(user_info, "full_name", "") if not isinstance(user_info, dict) else user_info.get("full_name", "")
+                        if pk in seen_pks:
+                            continue
 
-                    # Extract like status
-                    has_liked = bool(getattr(media_data, "has_liked", False) if not isinstance(media_data, dict) else media_data.get("has_liked", False))
+                        # Extract timestamp (supports int, float, string, micro/milliseconds, datetime)
+                        taken_at_raw = (
+                            getattr(media_data, "taken_at", None)
+                            if not isinstance(media_data, dict)
+                            else (
+                                media_data.get("taken_at")
+                                or media_data.get("device_timestamp")
+                                or (media_data.get("caption", {}) or {}).get("created_at")
+                                or (media_data.get("caption", {}) or {}).get("created_at_utc")
+                            )
+                        )
 
-                    # Extract caption text
-                    caption_raw = getattr(media_data, "caption", "") if not isinstance(media_data, dict) else media_data.get("caption")
-                    caption_text = ""
-                    if isinstance(caption_raw, dict):
-                        caption_text = caption_raw.get("text", "")
-                    elif isinstance(caption_raw, str):
-                        caption_text = caption_raw
-                    elif hasattr(caption_raw, "text"):
-                        caption_text = getattr(caption_raw, "text", "")
+                        taken_at_ts = None
+                        if isinstance(taken_at_raw, datetime):
+                            taken_at_ts = taken_at_raw.timestamp()
+                        elif isinstance(taken_at_raw, (int, float)):
+                            taken_at_ts = float(taken_at_raw)
+                        elif isinstance(taken_at_raw, str) and taken_at_raw.replace(".", "", 1).isdigit():
+                            taken_at_ts = float(taken_at_raw)
 
-                    code = getattr(media_data, "code", "") if not isinstance(media_data, dict) else media_data.get("code", "")
-                    like_count = getattr(media_data, "like_count", 0) if not isinstance(media_data, dict) else media_data.get("like_count", 0)
-                    comment_count = getattr(media_data, "comment_count", 0) if not isinstance(media_data, dict) else media_data.get("comment_count", 0)
+                        # Handle microsecond / millisecond timestamp formats
+                        if taken_at_ts:
+                            if taken_at_ts > 100_000_000_000_000: # Microseconds
+                                taken_at_ts = taken_at_ts / 1_000_000
+                            elif taken_at_ts > 100_000_000_000: # Milliseconds
+                                taken_at_ts = taken_at_ts / 1_000
+                        else:
+                            # Fallback to current timestamp if unavailable
+                            taken_at_ts = now_ts
 
-                    seen_pks.add(pk)
+                        # Extract author info (supports multiple payload schemas)
+                        user_info = (
+                            (getattr(media_data, "user", {}) if not isinstance(media_data, dict) else media_data.get("user", {}))
+                            or (getattr(media_data, "owner", {}) if not isinstance(media_data, dict) else media_data.get("owner", {}))
+                        )
+                        author_username = getattr(user_info, "username", "") if not isinstance(user_info, dict) else user_info.get("username", "")
+                        author_pk = str(getattr(user_info, "pk", "") if not isinstance(user_info, dict) else (user_info.get("pk") or user_info.get("id") or ""))
+                        author_full_name = getattr(user_info, "full_name", "") if not isinstance(user_info, dict) else user_info.get("full_name", "")
 
-                    post_obj = {
-                        "pk": pk,
-                        "code": code,
-                        "author_username": author_username or "instagram_user",
-                        "author_pk": author_pk,
-                        "author_full_name": author_full_name,
-                        "taken_at_ts": taken_at_ts,
-                        "taken_at_dt": datetime.fromtimestamp(taken_at_ts, tz=timezone.utc),
-                        "has_liked": has_liked,
-                        "caption_text": caption_text,
-                        "like_count": like_count,
-                        "comment_count": comment_count,
-                    }
+                        # Extract like status
+                        has_liked = bool(getattr(media_data, "has_liked", False) if not isinstance(media_data, dict) else media_data.get("has_liked", False))
 
-                    all_scanned_posts.append(post_obj)
+                        # Extract caption text
+                        caption_raw = getattr(media_data, "caption", "") if not isinstance(media_data, dict) else media_data.get("caption")
+                        caption_text = ""
+                        if isinstance(caption_raw, dict):
+                            caption_text = caption_raw.get("text", "")
+                        elif isinstance(caption_raw, str):
+                            caption_text = caption_raw
+                        elif hasattr(caption_raw, "text"):
+                            caption_text = getattr(caption_raw, "text", "")
 
-                    # Check cutoff condition
-                    if cutoff_hours <= 0 or taken_at_ts >= cutoff_ts:
-                        page_new_count += 1
-                        posts.append(post_obj)
-                    else:
-                        page_old_count += 1
+                        code = getattr(media_data, "code", "") if not isinstance(media_data, dict) else media_data.get("code", "")
+                        like_count = getattr(media_data, "like_count", 0) if not isinstance(media_data, dict) else media_data.get("like_count", 0)
+                        comment_count = getattr(media_data, "comment_count", 0) if not isinstance(media_data, dict) else media_data.get("comment_count", 0)
+
+                        seen_pks.add(pk)
+
+                        post_obj = {
+                            "pk": pk,
+                            "code": code,
+                            "author_username": author_username or "instagram_user",
+                            "author_pk": author_pk,
+                            "author_full_name": author_full_name,
+                            "taken_at_ts": taken_at_ts,
+                            "taken_at_dt": datetime.fromtimestamp(taken_at_ts, tz=timezone.utc),
+                            "has_liked": has_liked,
+                            "caption_text": caption_text,
+                            "like_count": like_count,
+                            "comment_count": comment_count,
+                        }
+
+                        all_scanned_posts.append(post_obj)
+
+                        # Check cutoff condition
+                        if cutoff_hours <= 0 or taken_at_ts >= cutoff_ts:
+                            page_new_count += 1
+                            posts.append(post_obj)
+                        else:
+                            page_old_count += 1
 
                 if cutoff_hours > 0:
                     log_print(f"Feed Page [bold cyan]{page}[/bold cyan]: {len(raw_items)} items retrieved | [bold green]{page_new_count}[/bold green] valid posts | [dim]{page_old_count} older[/dim]")
@@ -611,9 +602,13 @@ class Bot(Client):
                     log_print(f"Feed Page [bold cyan]{page}[/bold cyan]: {len(raw_items)} items retrieved | [bold green]{page_new_count}[/bold green] valid posts")
 
                 # Check pagination cursor
-                next_max_id = feed_data.get("next_max_id")
-                more_available = feed_data.get("more_available", False)
-                if not next_max_id or not more_available:
+                next_max_id = (
+                    feed_data.get("next_max_id")
+                    or feed_data.get("max_id")
+                    or (feed_data.get("pagination_info") or {}).get("next_max_id")
+                    or (feed_data.get("pagination_info") or {}).get("group_next_max_id")
+                )
+                if not next_max_id:
                     break
 
                 max_id = next_max_id
