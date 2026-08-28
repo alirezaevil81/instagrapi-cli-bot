@@ -38,6 +38,8 @@ from src.utils.console import (
     log_sleep,
     show_banner,
     fix_persian,
+    format_bilingual_prompt,
+    ask_yes_no,
     log_success,
     log_error,
     log_warning,
@@ -95,31 +97,31 @@ class Bot(Client):
             if saved_sessions:
                 choices = [
                     questionary.Choice(
-                        title=f"👤 @{u} ({fix_persian('سشن ذخیره‌شده')})",
+                        title=f"👤 @{u}\n   ↪ {fix_persian('نشست و سشن ذخیره‌شده')}",
                         value=u
                     ) for u in saved_sessions
                 ]
                 choices.append(
                     questionary.Choice(
-                        title=f"🔑 {fix_persian('ورود با کوکی / SessionID')} (Login via SessionID)",
+                        title=f"🔑 Login via SessionID Cookie\n   ↪ {fix_persian('ورود مستقیم با SessionID کوکی اینستاگرام')}",
                         value="__sessionid__"
                     )
                 )
                 choices.append(
                     questionary.Choice(
-                        title=f"➕ {fix_persian('ورود با اکانت جدید')} (Login with new account)",
+                        title=f"➕ Login with new account\n   ↪ {fix_persian('ورود با اکانت جدید')}",
                         value="__new__"
                     )
                 )
                 choices.append(
                     questionary.Choice(
-                        title=f"🚪 {fix_persian('خروج')} (Exit)",
+                        title=f"🚪 Exit\n   ↪ {fix_persian('انصراف و خروج')}",
                         value="__exit__"
                     )
                 )
 
                 selected = questionary.select(
-                    "Select an Instagram account / session to login:",
+                    "Select an Instagram account / session to login:\n  ↪ " + fix_persian("یک اکانت یا سشن را جهت ورود انتخاب کنید:"),
                     choices=choices
                 ).ask()
 
@@ -128,7 +130,10 @@ class Bot(Client):
                     break
                 elif selected == "__sessionid__":
                     sessionid_val = questionary.password(
-                        "Paste your Instagram SessionID cookie value:",
+                        format_bilingual_prompt(
+                            "Paste your Instagram SessionID cookie value",
+                            "مقدار SessionID کوکی اکانت اینستاگرام خود را وارد کنید"
+                        ),
                         validate=lambda val: True if len(val.strip()) > 0 else "SessionID cannot be empty"
                     ).ask()
                     if not sessionid_val:
@@ -136,7 +141,10 @@ class Bot(Client):
                         continue
 
                     uname_for_sid = questionary.text(
-                        "Enter the Username for this SessionID:",
+                        format_bilingual_prompt(
+                            "Enter the Username for this SessionID",
+                            "نام کاربری مربوط به این SessionID را وارد کنید"
+                        ),
                         validate=lambda val: True if len(val.strip()) > 0 else "Username cannot be empty"
                     ).ask()
                     if not uname_for_sid:
@@ -160,7 +168,10 @@ class Bot(Client):
 
                 elif selected == "__new__":
                     username = questionary.text(
-                        "Enter your Instagram Username:",
+                        format_bilingual_prompt(
+                            "Enter your Instagram Username",
+                            "نام کاربری اینستاگرام خود را وارد کنید"
+                        ),
                         validate=lambda val: True if len(val.strip()) > 0 else "Username cannot be empty"
                     ).ask()
                     if not username:
@@ -173,11 +184,20 @@ class Bot(Client):
                     login_via_session = True
             else:
                 login_method = questionary.select(
-                    "Select login method:",
+                    "Select login method:\n  ↪ " + fix_persian("روش ورود به اکانت را انتخاب کنید:"),
                     choices=[
-                        questionary.Choice(title=f"👤 {fix_persian('ورود با نام‌کاربری و رمز عبور')} (Username & Password)", value="password"),
-                        questionary.Choice(title=f"🔑 {fix_persian('ورود مستقیم با SessionID')} (SessionID Cookie)", value="sessionid"),
-                        questionary.Choice(title=f"🚪 {fix_persian('خروج')} (Exit)", value="exit"),
+                        questionary.Choice(
+                            title=f"👤 Username & Password\n   ↪ {fix_persian('ورود با نام‌کاربری و رمز عبور')}",
+                            value="password"
+                        ),
+                        questionary.Choice(
+                            title=f"🔑 SessionID Cookie (Recommended)\n   ↪ {fix_persian('ورود مستقیم با SessionID کوکی اینستاگرام (پیشنهادی)')}",
+                            value="sessionid"
+                        ),
+                        questionary.Choice(
+                            title=f"🚪 Exit\n   ↪ {fix_persian('انصراف و خروج')}",
+                            value="exit"
+                        ),
                     ]
                 ).ask()
 
@@ -187,14 +207,20 @@ class Bot(Client):
 
                 if login_method == "sessionid":
                     sessionid_val = questionary.password(
-                        "Paste your Instagram SessionID cookie value:",
+                        format_bilingual_prompt(
+                            "Paste your Instagram SessionID cookie value",
+                            "مقدار SessionID کوکی اینستاگرام خود را وارد کنید"
+                        ),
                         validate=lambda val: True if len(val.strip()) > 0 else "SessionID cannot be empty"
                     ).ask()
                     if not sessionid_val:
                         log_warning("Login canceled.")
                         continue
                     uname_for_sid = questionary.text(
-                        "Enter your Instagram Username:",
+                        format_bilingual_prompt(
+                            "Enter your Instagram Username",
+                            "نام کاربری اکانت اینستاگرام خود را وارد کنید"
+                        ),
                         validate=lambda val: True if len(val.strip()) > 0 else "Username cannot be empty"
                     ).ask()
                     if not uname_for_sid:
@@ -216,7 +242,10 @@ class Bot(Client):
                         break
 
                 username = questionary.text(
-                    "Enter your Instagram Username:",
+                    format_bilingual_prompt(
+                        "Enter your Instagram Username",
+                        "نام کاربری اینستاگرام خود را وارد کنید"
+                    ),
                     validate=lambda val: True if len(val.strip()) > 0 else "Username cannot be empty"
                 ).ask()
 
@@ -227,10 +256,11 @@ class Bot(Client):
                 username = username.strip()
                 session_path = self.get_session_path(username)
                 if os.path.exists(session_path):
-                    login_via_session = questionary.confirm(
+                    login_via_session = ask_yes_no(
                         f"Saved session found for @{username}. Do you want to use it?",
+                        f"نشست ذخیره‌شده برای @{username} یافت شد. آیا مایل به استفاده از آن هستید؟",
                         default=True
-                    ).ask()
+                    )
                 else:
                     login_via_session = False
 
@@ -254,7 +284,10 @@ class Bot(Client):
 
             if not login_via_session:
                 password = questionary.password(
-                    f"Enter password for @{username}:",
+                    format_bilingual_prompt(
+                        f"Enter password for @{username}",
+                        f"رمز عبور اکانت @{username} را وارد کنید"
+                    ),
                     validate=lambda val: True if len(val.strip()) > 0 else "Password cannot be empty"
                 ).ask()
 
@@ -268,7 +301,10 @@ class Bot(Client):
                 except TwoFactorRequired:
                     log_warning(f"Two-Factor Authentication (2FA) required for @{username} :lock:")
                     two_factor_code = questionary.text(
-                        "Enter your 6-digit 2FA / Authentication Code:",
+                        format_bilingual_prompt(
+                            "Enter your 6-digit 2FA / Authentication Code",
+                            "کد ۶ رقمی احراز هویت دو مرحله‌ای (2FA) را وارد کنید"
+                        ),
                         validate=lambda val: True if len(val.strip()) > 0 else "2FA code cannot be empty"
                     ).ask()
 

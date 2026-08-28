@@ -22,6 +22,9 @@ from src.utils import (
     log_warning,
     log_success,
     fix_persian,
+    format_bilingual_prompt,
+    ask_yes_no,
+    ask_delay_range,
     register_graceful_shutdown
 )
 
@@ -41,10 +44,11 @@ def format_relative_time(timestamp: float) -> str:
         days = diff // 86400
         return f"{days}d ago"
 
-def display_timeline_posts_table(posts: list, cutoff_hours: float = 24.0) -> None:
-    """Renders a beautiful Rich Table showing all 24h timeline posts sorted newest to oldest."""
+def display_timeline_posts_table(posts: list, cutoff_hours: float = 0.0) -> None:
+    """Renders a beautiful Rich Table showing all timeline posts sorted newest to oldest."""
+    time_label = f" ({cutoff_hours:g}h window)" if cutoff_hours > 0 else ""
     table = Table(
-        title=f":newspaper: [bold cyan]{fix_persian('پست‌های استخراج‌شده ۲۴ ساعت اخیر فید تایم‌لاین')}[/bold cyan] (Newest -> Oldest)",
+        title=f":newspaper: [bold cyan]{fix_persian('پست‌های استخراج‌شده فید تایم‌لاین')}{time_label}[/bold cyan] (Newest -> Oldest)",
         show_header=True,
         header_style="bold magenta",
         expand=True
@@ -100,35 +104,45 @@ def main():
         sys.exit(0)
 
     # ----------- Interactive Configuration (Questionary) --------------
-    console.print(f"\n[bold cyan]:gear: Configure Timeline Bot Parameters ({fix_persian('تنظیم پارامترهای تایم‌لاین فید')}):[/bold cyan]")
+    console.print(f"\n[bold cyan]:gear: Configure Timeline Bot Parameters[/bold cyan]\n  [dim]↪ {fix_persian('تنظیم پارامترهای تایم‌لاین فید')}[/dim]")
 
-    # Warm-up option
-    enable_warmup = questionary.confirm(
-        f"Perform natural account warm-up actions before starting? ({fix_persian('انجام آماده‌سازی و رفتار ارگانیک قبل از شروع')})",
+    # Warm-up option (Selectable Yes/No)
+    enable_warmup = ask_yes_no(
+        "Perform natural account warm-up actions before starting?",
+        "انجام آماده‌سازی و رفتار ارگانیک قبل از شروع ربات؟",
         default=True
-    ).ask()
+    )
 
-    # Cutoff hours (default 24 hours, 0 for unlimited)
+    # Cutoff hours (default 0 for all posts, or specify custom hours)
     cutoff_hours_str = questionary.text(
-        f"Filter posts published in last X hours (Enter '0' for All Feed Posts / {fix_persian('فیلتر بر حسب چند ساعت اخیر - برای همه پست‌ها 0 بزنید')}):",
-        default="24"
-    ).ask() or "24"
+        format_bilingual_prompt(
+            "Filter posts by time window in hours (Enter '0' for All Feed Posts [Default])",
+            "فیلتر زمانی به ساعت - برای دریافت تمام پست‌های فید 0 را تایید کنید"
+        ),
+        default="0"
+    ).ask() or "0"
     try:
         cutoff_hours = float(cutoff_hours_str.strip())
         if cutoff_hours < 0:
             cutoff_hours = 0.0
     except ValueError:
-        cutoff_hours = 24.0
+        cutoff_hours = 0.0
 
     # Auto-fallback option
-    auto_fallback = questionary.confirm(
-        f"Auto-fallback to available feed posts if 0 posts found in the strict time window? ({fix_persian('در صورت نبود پست در بازه زمانی، سایر پست‌های موجود فید لایک شوند؟')})",
-        default=True
-    ).ask()
+    auto_fallback = True
+    if cutoff_hours > 0:
+        auto_fallback = ask_yes_no(
+            "Auto-fallback to available feed posts if 0 posts found in the strict time window?",
+            "در صورت نبود پست در بازه زمانی، سایر پست‌های موجود فید لایک شوند؟",
+            default=True
+        )
 
     # Max pages to paginate per cycle
     max_pages_str = questionary.text(
-        f"Max feed pages to fetch per cycle ({fix_persian('حداکثر صفحات فید برای دریافت در هر دور')}):",
+        format_bilingual_prompt(
+            "Max feed pages to fetch per cycle",
+            "حداکثر صفحات فید برای دریافت در هر دور"
+        ),
         default="6"
     ).ask() or "6"
     try:
@@ -136,25 +150,15 @@ def main():
     except ValueError:
         max_pages = 6
 
-    # Like delay configuration
-    min_like_delay_str = questionary.text(
-        f"Min delay between likes ({fix_persian('حداقل تاخیر بین لایک‌ها به ثانیه')}):",
-        default="25"
-    ).ask() or "25"
-    max_like_delay_str = questionary.text(
-        f"Max delay between likes ({fix_persian('حداکثر تاخیر بین لایک‌ها به ثانیه')}):",
-        default="50"
-    ).ask() or "50"
-    try:
-        l1 = max(1, int(min_like_delay_str.strip()))
-        l2 = max(1, int(max_like_delay_str.strip()))
-        bot.like_delay_range = [min(l1, l2), max(l1, l2)]
-    except ValueError:
-        bot.like_delay_range = [25, 50]
+    # Like delay configuration with presets (25-50s, 60-90s, 90-150s, Custom)
+    bot.like_delay_range = ask_delay_range("likes (لایک‌ها)", default_range=[60, 90])
 
     # Refresh cooldown between cycles
     refresh_cooldown_min_str = questionary.text(
-        f"Cooldown interval before refreshing timeline feed again ({fix_persian('فاصله زمانی تا رفرش مجدد فید به دقیقه')}):",
+        format_bilingual_prompt(
+            "Cooldown interval before refreshing timeline feed again (minutes)",
+            "فاصله زمانی تا رفرش مجدد فید به دقیقه"
+        ),
         default="3"
     ).ask() or "3"
     try:
@@ -162,21 +166,15 @@ def main():
     except ValueError:
         refresh_cooldown_seconds = 180
 
-    # Commenting toggle
-    commenting = questionary.confirm(
-        f"Enable automated comments on timeline posts? ({fix_persian('ارسال خودکار کامنت روی پست‌ها')})",
+    # Commenting toggle (Selectable Yes/No)
+    commenting = ask_yes_no(
+        "Enable automated comments on timeline posts?",
+        "ارسال خودکار کامنت روی پست‌های تایم‌لاین؟",
         default=False
-    ).ask()
+    )
     if commenting:
         log_print("Automated commenting is [bold green]ENABLED[/bold green] :white_check_mark:")
-        min_com_delay_str = questionary.text(f"Min delay between comments ({fix_persian('حداقل تاخیر کامنت')}):", default="60").ask() or "60"
-        max_com_delay_str = questionary.text(f"Max delay between comments ({fix_persian('حداکثر تاخیر کامنت')}):", default="90").ask() or "90"
-        try:
-            c1 = max(1, int(min_com_delay_str.strip()))
-            c2 = max(1, int(max_com_delay_str.strip()))
-            bot.comment_delay_range = [min(c1, c2), max(c1, c2)]
-        except ValueError:
-            bot.comment_delay_range = [60, 90]
+        bot.comment_delay_range = ask_delay_range("comments (کامنت‌ها)", default_range=[60, 90])
 
     # Execute warm-up if enabled
     if enable_warmup:
@@ -192,9 +190,10 @@ def main():
         while True:
             round_num += 1
             console.print(f"\n[bold magenta]═══════════════ :repeat: Round {round_num}: Refreshing Timeline Feed ═══════════════[/bold magenta]")
-            log_print(f"Fetching up to [bold cyan]{max_pages}[/bold cyan] pages of timeline feed from the last [bold cyan]{cutoff_hours:g}h[/bold cyan]...")
+            time_desc = f"from the last [bold cyan]{cutoff_hours:g}h[/bold cyan]" if cutoff_hours > 0 else "[bold cyan](All Available)[/bold cyan]"
+            log_print(f"Fetching up to [bold cyan]{max_pages}[/bold cyan] pages of timeline feed {time_desc}...")
 
-            # 1. Fetch posts from timeline feed (24h window or fallback)
+            # 1. Fetch posts from timeline feed
             recent_posts = bot.fetch_timeline_feed_posts_24h(
                 max_pages=max_pages,
                 cutoff_hours=cutoff_hours,
@@ -202,14 +201,16 @@ def main():
             )
 
             if not recent_posts:
-                log_warning(f"No posts found in timeline feed for the last {cutoff_hours:g} hours.")
+                no_post_msg = f"for the last {cutoff_hours:g} hours" if cutoff_hours > 0 else "in your timeline feed"
+                log_warning(f"No posts found {no_post_msg}.")
                 log_sleep(
                     refresh_cooldown_seconds,
                     message=f"Waiting {refresh_cooldown_seconds//60}m before next feed refresh"
                 )
                 continue
 
-            log_success(f"Retrieved [bold cyan]{len(recent_posts)}[/bold cyan] total posts published in the last {cutoff_hours:g} hours :newspaper:")
+            time_success_desc = f"in the last {cutoff_hours:g} hours" if cutoff_hours > 0 else "from timeline feed"
+            log_success(f"Retrieved [bold cyan]{len(recent_posts)}[/bold cyan] total posts {time_success_desc} :newspaper:")
 
             # 2. Display extracted posts in table
             display_timeline_posts_table(recent_posts, cutoff_hours=cutoff_hours)
@@ -221,7 +222,8 @@ def main():
             ]
 
             if not unliked_posts:
-                log_success(f":sparkles: [bold green]All {len(recent_posts)} posts from the last {cutoff_hours:g} hours are already liked![/bold green]")
+                all_liked_desc = f"from the last {cutoff_hours:g} hours" if cutoff_hours > 0 else "in the current feed"
+                log_success(f":sparkles: [bold green]All {len(recent_posts)} posts {all_liked_desc} are already liked![/bold green]")
                 mins_text = f"{refresh_cooldown_seconds // 60}m" if refresh_cooldown_seconds >= 60 else f"{refresh_cooldown_seconds}s"
                 log_print(f"Cooling down for [bold cyan]{mins_text}[/bold cyan] before refreshing timeline for new incoming posts... :sleeping:")
                 log_sleep(

@@ -32,22 +32,22 @@ def main():
     show_banner("Instagram Bot Hub", "Select bot mode to run")
 
     choice = questionary.select(
-        "Which bot would you like to run?",
+        "Select bot mode to run:\n  ↪ " + fix_persian("انتخاب ربات برای اجرا:"),
         choices=[
             questionary.Choice(
-                title=f"1. {fix_persian('لایک مداوم پست‌های ۲۴ ساعت اخیر فید تایم‌لاین با رفرش خودکار')} (Timeline Feed 24h Liker)",
+                title=f"1. Timeline Feed Liker (Continuous Feed Liker with Auto-Refresh)\n   ↪ {fix_persian('لایک مداوم پست‌های فید تایم‌لاین با رفرش خودکار')}",
                 value="timeline"
             ),
             questionary.Choice(
-                title=f"2. {fix_persian('لایک خودکار پست‌های فالووینگ‌ها')} (Followers / Following Liker)",
+                title=f"2. Following Feed Liker (Automated Liker for Accounts You Follow)\n   ↪ {fix_persian('لایک خودکار جدیدترین پست‌های فالووینگ‌ها')}",
                 value="followers"
             ),
             questionary.Choice(
-                title=f"3. {fix_persian('استخراج و تعامل با لایک‌کنندگان پست هدف')} (Post Likers Bot)",
+                title=f"3. Post Likers Bot (Extract Likers & Automated Engagement)\n   ↪ {fix_persian('استخراج و تعامل با لایک‌کنندگان پست هدف')}",
                 value="posts"
             ),
             questionary.Choice(
-                title=f"4. {fix_persian('خروج')} (Exit)",
+                title=f"4. Exit\n   ↪ {fix_persian('خروج از برنامه')}",
                 value="exit"
             ),
         ]

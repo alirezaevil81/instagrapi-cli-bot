@@ -63,6 +63,84 @@ def fix_persian(text: str) -> str:
         except Exception:
             return text
 
+def format_bilingual_prompt(english: str, persian: str) -> str:
+    """
+    Formats a prompt with English on the first line and Persian cleanly on the second line.
+    This prevents terminal text-shuffling and BiDi mixing issues.
+    """
+    fixed_fa = fix_persian(persian)
+    return f"{english}\n  ↪ {fixed_fa}:"
+
+def ask_yes_no(english_question: str, persian_question: str, default: bool = True) -> bool:
+    """
+    Displays an interactive selection menu with Yes / No options instead of single-character inputs.
+    """
+    import questionary
+    prompt_text = f"{english_question}\n  ↪ {fix_persian(persian_question)}"
+    choice = questionary.select(
+        prompt_text,
+        choices=[
+            questionary.Choice(title=f"✅ Yes ({fix_persian('بله')})", value=True),
+            questionary.Choice(title=f"❌ No ({fix_persian('خیر')})", value=False),
+        ],
+        default=questionary.Choice(title=f"✅ Yes ({fix_persian('بله')})", value=True) if default else questionary.Choice(title=f"❌ No ({fix_persian('خیر')})", value=False)
+    ).ask()
+    return default if choice is None else bool(choice)
+
+def ask_delay_range(action_name: str = "likes", default_range: list = None) -> list:
+    """
+    Interactive select menu for delay presets with a Custom option.
+    Includes [60, 90] seconds preset among popular safe ranges.
+    """
+    import questionary
+    if not default_range or len(default_range) != 2:
+        default_range = [60, 90]
+
+    prompt_text = (
+        f"Select delay interval between {action_name} (seconds):\n"
+        f"  ↪ {fix_persian(f'انتخاب بازه تاخیر و وقفه بین {action_name} به ثانیه')}:"
+    )
+
+    choices = [
+        questionary.Choice(title=f"⚡ 25 - 50 seconds ({fix_persian('پیشنهادی سریع/متوسط')})", value="25_50"),
+        questionary.Choice(title=f"🛡️ 60 - 90 seconds ({fix_persian('پیشنهادی امن و مطمئن')})", value="60_90"),
+        questionary.Choice(title=f"⏳ 90 - 150 seconds ({fix_persian('خیلی امن و محافظه‌کارانه')})", value="90_150"),
+        questionary.Choice(title=f"⚙️ Custom interval... ({fix_persian('تنظیم دلخواه و دستی')})", value="custom"),
+    ]
+
+    selected = questionary.select(
+        prompt_text,
+        choices=choices,
+        default="60_90"
+    ).ask()
+
+    if selected == "25_50":
+        return [25, 50]
+    elif selected == "60_90":
+        return [60, 90]
+    elif selected == "90_150":
+        return [90, 150]
+    elif selected == "custom":
+        min_p = format_bilingual_prompt(
+            f"Enter minimum delay for {action_name} (seconds)",
+            f"حداقل تاخیر بین {action_name} به ثانیه"
+        )
+        max_p = format_bilingual_prompt(
+            f"Enter maximum delay for {action_name} (seconds)",
+            f"حداکثر تاخیر بین {action_name} به ثانیه"
+        )
+        min_val_str = questionary.text(min_p, default=str(default_range[0])).ask() or str(default_range[0])
+        max_val_str = questionary.text(max_p, default=str(default_range[1])).ask() or str(default_range[1])
+        try:
+            val1 = max(1, int(min_val_str.strip()))
+            val2 = max(1, int(max_val_str.strip()))
+            return [min(val1, val2), max(val1, val2)]
+        except ValueError:
+            return default_range
+    else:
+        return default_range
+
+
 def log_print(*args, _stack_offset: int = 2, **kwargs):
     """Logs messages with Rich console and writes to storage/logs/bot.log."""
     console.log(*args, _stack_offset=_stack_offset, **kwargs)

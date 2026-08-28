@@ -36,6 +36,9 @@ from src.utils import (
     log_warning,
     log_sleep,
     fix_persian,
+    format_bilingual_prompt,
+    ask_yes_no,
+    ask_delay_range,
     register_graceful_shutdown
 )
 
@@ -57,10 +60,11 @@ def main():
     start_via_saved_queue = False
 
     if pending_count > 0:
-        use_saved_db = questionary.confirm(
+        use_saved_db = ask_yes_no(
             f"Found {pending_count} pending target users in SQLite database. Do you want to resume?",
+            f"تعداد {pending_count} کاربر در صف دیتابیس وجود دارد. آیا مایل به ادامه عملیات قبلی هستید؟",
             default=True
-        ).ask()
+        )
         start_via_saved_queue = bool(use_saved_db)
 
     if start_via_saved_queue:
@@ -68,7 +72,10 @@ def main():
         log_success(f"Loaded [bold cyan]{len(users)}[/bold cyan] target users from SQLite database queue.")
     else:
         posts_raw = questionary.text(
-            "Enter target post URLs (separated by comma):",
+            format_bilingual_prompt(
+                "Enter target post URLs (separated by comma)",
+                "لینک پست‌های هدف اینستاگرام را وارد کنید (با کاما جدا کنید)"
+            ),
             validate=lambda val: True if len(val.strip()) > 0 else "Please provide at least one post URL"
         ).ask()
 
@@ -151,34 +158,46 @@ def main():
         sys.exit(0)
 
     # ----------- Interactive Configuration (Questionary) --------------
-    console.print(f"\n[bold cyan]:gear: Configure Bot Parameters ({fix_persian('تنظیم پارامترهای اجرایی و تاخیرها')}):[/bold cyan]")
+    console.print(f"\n[bold cyan]:gear: Configure Bot Parameters[/bold cyan]\n  [dim]↪ {fix_persian('تنظیم پارامترهای اجرایی و تاخیرها')}[/dim]")
 
-    # Warm-up option
-    enable_warmup = questionary.confirm(
-        f"Perform natural account warm-up actions before starting? ({fix_persian('انجام آماده‌سازی و رفتار ارگانیک قبل از شروع')})",
+    # Warm-up option (Selectable Yes/No)
+    enable_warmup = ask_yes_no(
+        "Perform natural account warm-up actions before starting?",
+        "انجام آماده‌سازی و رفتار ارگانیک قبل از شروع ربات؟",
         default=True
-    ).ask()
+    )
 
-    # Like delay configuration
-    min_like_delay_str = questionary.text(f"Min delay between likes ({fix_persian('حداقل تاخیر بین لایک‌ها به ثانیه')}):", default="30").ask() or "30"
-    max_like_delay_str = questionary.text(f"Max delay between likes ({fix_persian('حداکثر تاخیر بین لایک‌ها به ثانیه')}):", default="60").ask() or "60"
-    try:
-        l1 = max(1, int(min_like_delay_str.strip()))
-        l2 = max(1, int(max_like_delay_str.strip()))
-        like_delay_range = [min(l1, l2), max(l1, l2)]
-    except ValueError:
-        like_delay_range = [30, 60]
+    # Like delay configuration with presets
+    like_delay_range = ask_delay_range("likes (لایک‌ها)", default_range=[60, 90])
 
     # Posts to check per target user
-    posts_amount_str = questionary.text(f"Number of recent posts to like per target user ({fix_persian('تعداد پست‌های هر تارگت')}):", default="3").ask() or "3"
+    posts_amount_str = questionary.text(
+        format_bilingual_prompt(
+            "Number of recent posts to like per target user",
+            "تعداد پست‌های لایک‌شده برای هر کاربر هدف"
+        ),
+        default="3"
+    ).ask() or "3"
     try:
         posts_amount = max(1, int(posts_amount_str.strip()))
     except ValueError:
         posts_amount = 3
 
     # API Request Delay range
-    min_delay_str = questionary.text(f"Base API request delay min ({fix_persian('حداقل تاخیر ریکوئست‌ها به ثانیه')}):", default="3").ask() or "3"
-    max_delay_str = questionary.text(f"Base API request delay max ({fix_persian('حداکثر تاخیر ریکوئست‌ها به ثانیه')}):", default="7").ask() or "7"
+    min_delay_str = questionary.text(
+        format_bilingual_prompt(
+            "Base API request delay min (seconds)",
+            "حداقل تاخیر پایه ریکوئست‌های اینستاگرام به ثانیه"
+        ),
+        default="3"
+    ).ask() or "3"
+    max_delay_str = questionary.text(
+        format_bilingual_prompt(
+            "Base API request delay max (seconds)",
+            "حداکثر تاخیر پایه ریکوئست‌های اینستاگرام به ثانیه"
+        ),
+        default="7"
+    ).ask() or "7"
     try:
         d1 = int(min_delay_str.strip())
         d2 = int(max_delay_str.strip())
