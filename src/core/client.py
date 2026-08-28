@@ -431,24 +431,32 @@ class Bot(Client):
                 page_old_count = 0
 
                 for item in raw_items:
+                    if not item:
+                        continue
+
                     media_data = None
                     if isinstance(item, dict):
-                        # Accurate ad detection (do not filter on standard post UI attributes like hide_reasons_v2)
-                        is_ad = bool(
-                            item.get("is_ad") is True
-                            or item.get("is_sponsored") is True
-                            or item.get("injected") is not None
-                            or str(item.get("ad_id", "")).strip() != ""
-                        )
-                        if is_ad:
+                        # Filter true ads
+                        if item.get("is_ad") is True or item.get("is_sponsored") is True:
                             continue
                         
-                        media_data = (
-                            item.get("media_or_ad")
-                            or (item.get("clips_item", {}) or {}).get("media")
-                            or item.get("media")
-                            or item
-                        )
+                        ad_id = item.get("ad_id")
+                        if ad_id and str(ad_id).strip() not in ("", "None", "0"):
+                            continue
+
+                        # Extract media dictionary from any common timeline wrapper
+                        if isinstance(item.get("media_or_ad"), dict):
+                            media_data = item["media_or_ad"]
+                        elif isinstance(item.get("clips_item"), dict) and isinstance(item["clips_item"].get("media"), dict):
+                            media_data = item["clips_item"]["media"]
+                        elif isinstance(item.get("media"), dict):
+                            media_data = item["media"]
+                        elif "pk" in item or "id" in item or "code" in item:
+                            media_data = item
+                        else:
+                            # Non-media items (e.g. story_tray, explore_story, suggested_users, end_of_feed_demarcator)
+                            continue
+
                         if not isinstance(media_data, dict):
                             continue
                         if media_data.get("is_ad") is True or media_data.get("is_sponsored") is True:
@@ -458,17 +466,15 @@ class Bot(Client):
 
                     # Extract PK / ID (must be non-empty digits)
                     raw_pk = (
-                        getattr(media_data, "pk", None)
-                        if not isinstance(media_data, dict)
-                        else (
-                            media_data.get("pk")
-                            or media_data.get("id")
-                            or (item.get("pk") if isinstance(item, dict) else None)
-                            or (item.get("id") if isinstance(item, dict) else None)
-                        )
+                        (media_data.get("pk") if isinstance(media_data, dict) else None)
+                        or (media_data.get("id") if isinstance(media_data, dict) else None)
+                        or getattr(media_data, "pk", None)
+                        or getattr(media_data, "id", None)
+                        or (item.get("pk") if isinstance(item, dict) else None)
+                        or (item.get("id") if isinstance(item, dict) else None)
                     )
                     
-                    if raw_pk is None or raw_pk == "" or str(raw_pk).lower() == "none":
+                    if raw_pk is None or str(raw_pk).strip().lower() in ("", "none", "0"):
                         continue
 
                     pk_str = str(raw_pk).split("_")[0].strip()
