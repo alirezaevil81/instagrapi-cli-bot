@@ -108,15 +108,23 @@ def main():
         default=True
     ).ask()
 
-    # Cutoff hours (default 24 hours)
+    # Cutoff hours (default 24 hours, 0 for unlimited)
     cutoff_hours_str = questionary.text(
-        f"Filter posts from the last X hours ({fix_persian('فیلتر پست‌های چند ساعت اخیر')}):",
+        f"Filter posts published in last X hours (Enter '0' for All Feed Posts / {fix_persian('فیلتر بر حسب چند ساعت اخیر - برای همه پست‌ها 0 بزنید')}):",
         default="24"
     ).ask() or "24"
     try:
-        cutoff_hours = max(1.0, float(cutoff_hours_str.strip()))
+        cutoff_hours = float(cutoff_hours_str.strip())
+        if cutoff_hours < 0:
+            cutoff_hours = 0.0
     except ValueError:
         cutoff_hours = 24.0
+
+    # Auto-fallback option
+    auto_fallback = questionary.confirm(
+        f"Auto-fallback to available feed posts if 0 posts found in the strict time window? ({fix_persian('در صورت نبود پست در بازه زمانی، سایر پست‌های موجود فید لایک شوند؟')})",
+        default=True
+    ).ask()
 
     # Max pages to paginate per cycle
     max_pages_str = questionary.text(
@@ -186,8 +194,12 @@ def main():
             console.print(f"\n[bold magenta]═══════════════ :repeat: Round {round_num}: Refreshing Timeline Feed ═══════════════[/bold magenta]")
             log_print(f"Fetching up to [bold cyan]{max_pages}[/bold cyan] pages of timeline feed from the last [bold cyan]{cutoff_hours:g}h[/bold cyan]...")
 
-            # 1. Fetch posts from timeline feed (24h window)
-            recent_posts = bot.fetch_timeline_feed_posts_24h(max_pages=max_pages, cutoff_hours=cutoff_hours)
+            # 1. Fetch posts from timeline feed (24h window or fallback)
+            recent_posts = bot.fetch_timeline_feed_posts_24h(
+                max_pages=max_pages,
+                cutoff_hours=cutoff_hours,
+                fallback_if_empty=auto_fallback
+            )
 
             if not recent_posts:
                 log_warning(f"No posts found in timeline feed for the last {cutoff_hours:g} hours.")

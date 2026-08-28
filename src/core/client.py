@@ -371,19 +371,21 @@ class Bot(Client):
             log_error(f"Cannot fetch posts for user {user_id}: ", str(e))
         return user_posts
 
-    def fetch_timeline_feed_posts_24h(self, max_pages: int = 6, cutoff_hours: float = 24.0) -> list:
+    def fetch_timeline_feed_posts_24h(self, max_pages: int = 6, cutoff_hours: float = 24.0, fallback_if_empty: bool = True) -> list:
         """
         Fetches timeline feed posts paginating through multiple pages,
         filters for posts published in the last `cutoff_hours` (default 24h),
         skips ads/promotions, and sorts them from newest to oldest.
+        If cutoff_hours <= 0, returns all fetched feed posts without time limit.
         """
         import time
         from datetime import datetime, timezone
 
         posts = []
+        all_scanned_posts = []
         seen_pks = set()
         now_ts = time.time()
-        cutoff_ts = now_ts - (cutoff_hours * 3600)
+        cutoff_ts = now_ts - (cutoff_hours * 3600) if cutoff_hours > 0 else 0
 
         max_id = None
         consecutive_old_pages = 0
@@ -391,25 +393,57 @@ class Bot(Client):
         for page in range(1, max_pages + 1):
             try:
                 reason = "pull_to_refresh" if page == 1 else "paginating"
-                feed_data = self.get_timeline_feed(reason=reason, max_id=max_id) if max_id else self.get_timeline_feed(reason=reason)
                 
+                # Fetch timeline feed using library or direct private request
+                feed_data = None
+                try:
+                    if max_id:
+                        feed_data = self.get_timeline_feed(reason=reason, max_id=str(max_id))
+                    else:
+                        feed_data = self.get_timeline_feed(reason=reason)
+                except Exception as req_err:
+                    log_warning(f"Standard get_timeline_feed page {page} notice: {req_err}")
+                    # Fallback to direct private request if mixin had issues
+                    try:
+                        params = {"reason": reason}
+                        if max_id:
+                            params["max_id"] = str(max_id)
+                        feed_data = self.private_request("feed/timeline/", params=params)
+                    except Exception as priv_err:
+                        log_error(f"Private request timeline error: {priv_err}")
+                        break
+
                 if not feed_data or not isinstance(feed_data, dict):
                     break
                     
-                feed_items = feed_data.get("feed_items", [])
-                if not feed_items:
+                # Support various response containers
+                raw_items = (
+                    feed_data.get("feed_items")
+                    or feed_data.get("items")
+                    or feed_data.get("ranked_items")
+                    or feed_data.get("tray")
+                    or []
+                )
+
+                if not raw_items:
                     break
 
                 page_new_count = 0
                 page_old_count = 0
 
-                for item in feed_items:
+                for item in raw_items:
                     media_data = None
                     if isinstance(item, dict):
-                        # Skip ads / sponsored items
-                        if item.get("is_ad") or item.get("injected") or item.get("ad_action"):
+                        # Skip sponsored / ads
+                        if (
+                            item.get("is_ad")
+                            or item.get("injected")
+                            or item.get("ad_action")
+                            or item.get("hide_reasons_v2")
+                        ):
                             continue
-                        media_data = item.get("media_or_ad", item)
+                        
+                        media_data = item.get("media_or_ad") or item.get("media") or item
                         if not isinstance(media_data, dict):
                             continue
                         if media_data.get("is_ad") or media_data.get("ad_action") or media_data.get("link"):
@@ -417,25 +451,47 @@ class Bot(Client):
                     else:
                         media_data = item
 
-                    # Extract PK
-                    pk = str(getattr(media_data, "pk", "") or (media_data.get("pk") if isinstance(media_data, dict) else "") or (media_data.get("id") if isinstance(media_data, dict) else ""))
+                    # Extract PK / ID
+                    pk = str(
+                        getattr(media_data, "pk", "")
+                        or (media_data.get("pk") if isinstance(media_data, dict) else "")
+                        or (media_data.get("id") if isinstance(media_data, dict) else "")
+                    ).split("_")[0]
+
                     if not pk or pk in seen_pks:
                         continue
 
-                    # Extract timestamp
-                    taken_at_raw = getattr(media_data, "taken_at", None) if not isinstance(media_data, dict) else media_data.get("taken_at")
+                    # Extract timestamp (supports int, float, string, micro/milliseconds, datetime)
+                    taken_at_raw = (
+                        getattr(media_data, "taken_at", None)
+                        if not isinstance(media_data, dict)
+                        else (
+                            media_data.get("taken_at")
+                            or media_data.get("device_timestamp")
+                            or (media_data.get("caption", {}) or {}).get("created_at")
+                            or (media_data.get("caption", {}) or {}).get("created_at_utc")
+                        )
+                    )
+
                     taken_at_ts = None
                     if isinstance(taken_at_raw, datetime):
                         taken_at_ts = taken_at_raw.timestamp()
                     elif isinstance(taken_at_raw, (int, float)):
                         taken_at_ts = float(taken_at_raw)
-                    elif isinstance(taken_at_raw, str) and taken_at_raw.isdigit():
+                    elif isinstance(taken_at_raw, str) and taken_at_raw.replace(".", "", 1).isdigit():
                         taken_at_ts = float(taken_at_raw)
 
-                    if not taken_at_ts:
-                        continue
+                    # Handle microsecond / millisecond timestamp formats
+                    if taken_at_ts:
+                        if taken_at_ts > 100_000_000_000_000: # Microseconds
+                            taken_at_ts = taken_at_ts / 1_000_000
+                        elif taken_at_ts > 100_000_000_000: # Milliseconds
+                            taken_at_ts = taken_at_ts / 1_000
+                    else:
+                        # Fallback to current timestamp if unavailable
+                        taken_at_ts = now_ts
 
-                    # Extract author
+                    # Extract author info
                     user_info = getattr(media_data, "user", {}) if not isinstance(media_data, dict) else media_data.get("user", {})
                     author_username = getattr(user_info, "username", "") if not isinstance(user_info, dict) else user_info.get("username", "")
                     author_pk = str(getattr(user_info, "pk", "") if not isinstance(user_info, dict) else user_info.get("pk", ""))
@@ -444,7 +500,7 @@ class Bot(Client):
                     # Extract like status
                     has_liked = bool(getattr(media_data, "has_liked", False) if not isinstance(media_data, dict) else media_data.get("has_liked", False))
 
-                    # Extract caption
+                    # Extract caption text
                     caption_raw = getattr(media_data, "caption", "") if not isinstance(media_data, dict) else media_data.get("caption")
                     caption_text = ""
                     if isinstance(caption_raw, dict):
@@ -460,24 +516,30 @@ class Bot(Client):
 
                     seen_pks.add(pk)
 
+                    post_obj = {
+                        "pk": pk,
+                        "code": code,
+                        "author_username": author_username,
+                        "author_pk": author_pk,
+                        "author_full_name": author_full_name,
+                        "taken_at_ts": taken_at_ts,
+                        "taken_at_dt": datetime.fromtimestamp(taken_at_ts, tz=timezone.utc),
+                        "has_liked": has_liked,
+                        "caption_text": caption_text,
+                        "like_count": like_count,
+                        "comment_count": comment_count,
+                    }
+
+                    all_scanned_posts.append(post_obj)
+
                     # Check cutoff condition
-                    if taken_at_ts >= cutoff_ts:
+                    if cutoff_hours <= 0 or taken_at_ts >= cutoff_ts:
                         page_new_count += 1
-                        posts.append({
-                            "pk": pk,
-                            "code": code,
-                            "author_username": author_username,
-                            "author_pk": author_pk,
-                            "author_full_name": author_full_name,
-                            "taken_at_ts": taken_at_ts,
-                            "taken_at_dt": datetime.fromtimestamp(taken_at_ts, tz=timezone.utc),
-                            "has_liked": has_liked,
-                            "caption_text": caption_text,
-                            "like_count": like_count,
-                            "comment_count": comment_count,
-                        })
+                        posts.append(post_obj)
                     else:
                         page_old_count += 1
+
+                log_print(f"Feed Page [bold cyan]{page}[/bold cyan]: {len(raw_items)} items retrieved | [bold green]{page_new_count}[/bold green] within {cutoff_hours:g}h window | [dim]{page_old_count} older[/dim]")
 
                 # Check pagination cursor
                 next_max_id = feed_data.get("next_max_id")
@@ -487,7 +549,7 @@ class Bot(Client):
 
                 max_id = next_max_id
 
-                if page_old_count > 0 and page_new_count == 0:
+                if cutoff_hours > 0 and page_old_count > 5 and page_new_count == 0:
                     consecutive_old_pages += 1
                     if consecutive_old_pages >= 2:
                         break
@@ -508,6 +570,13 @@ class Bot(Client):
             except Exception as e:
                 log_error(f"Error fetching timeline page {page}: ", str(e))
                 break
+
+        # Fallback to scanned posts if 24h filter produced 0 items but feed has posts
+        if not posts and all_scanned_posts and fallback_if_empty:
+            log_warning(
+                f"No posts within the strict {cutoff_hours:g}h window, but found [bold cyan]{len(all_scanned_posts)}[/bold cyan] recent posts in your feed. Applying fallback..."
+            )
+            posts = all_scanned_posts
 
         # Sort posts from newest to oldest (descending timestamp)
         posts.sort(key=lambda p: p["taken_at_ts"], reverse=True)
