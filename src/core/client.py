@@ -431,26 +431,34 @@ class Bot(Client):
             try:
                 reason = "pull_to_refresh" if page == 1 else "pagination"
                 
-                # Fetch timeline feed using library or direct private request
+                # Fetch timeline feed using direct private request with proper POST body pagination
                 feed_data = None
                 try:
+                    post_data = {
+                        "_uuid": getattr(self, "uuid", ""),
+                        "_uid": str(getattr(self, "user_id", "") or ""),
+                        "_csrftoken": getattr(self, "token", ""),
+                        "is_prefetch": "0",
+                        "feed_view_info": "[]",
+                        "seen_posts": ",".join([str(p) for p in feed_seen_posts[-20:]]) if feed_seen_posts else "",
+                        "phone_id": getattr(self, "phone_id", ""),
+                        "battery_level": "100",
+                        "is_charging": "1",
+                        "is_pull_to_refresh": "0" if max_id else "1",
+                        "reason": reason,
+                        "will_sound_on": "0",
+                    }
                     if max_id:
-                        feed_data = self.get_timeline_feed(
-                            reason=reason,
-                            max_id=str(max_id),
-                            seen_posts=feed_seen_posts if feed_seen_posts else None
-                        )
-                    else:
-                        feed_data = self.get_timeline_feed(reason=reason)
+                        post_data["max_id"] = str(max_id)
+                        post_data["next_max_id"] = str(max_id)
+                    
+                    feed_data = self.private_request("feed/timeline/", data=post_data)
                 except Exception as req_err:
-                    # Fallback to direct private request if mixin had issues
+                    # Fallback to get_timeline_feed if private_request fails
                     try:
-                        params = {"reason": reason}
-                        if max_id:
-                            params["max_id"] = str(max_id)
-                        feed_data = self.private_request("feed/timeline/", params=params)
+                        feed_data = self.get_timeline_feed(reason=reason)
                     except Exception as priv_err:
-                        log_error(f"Private request timeline error: {priv_err}")
+                        log_error(f"Timeline feed request error: {priv_err}")
                         break
 
                 if not feed_data or not isinstance(feed_data, dict):
@@ -482,17 +490,22 @@ class Bot(Client):
                         clip_media = it["clips_item"].get("media") or it["clips_item"]
                         if isinstance(clip_media, dict):
                             found.append(clip_media)
-                    # 3. Direct media
+                    # 3. Clips netego
+                    if isinstance(it.get("clips_netego"), dict):
+                        for c in it["clips_netego"].get("items", []):
+                            if isinstance(c, dict):
+                                found.append(c.get("media") or c)
+                    # 4. Direct media
                     if isinstance(it.get("media"), dict):
                         found.append(it["media"])
-                    # 4. Nested items / carousel
+                    # 5. Nested items / carousel
                     if isinstance(it.get("items"), list):
                         for sub_it in it["items"]:
                             found.extend(extract_all_medias(sub_it))
                     if isinstance(it.get("carousel_media"), list):
                         for sub_it in it["carousel_media"]:
                             found.extend(extract_all_medias(sub_it))
-                    # 5. Fallback: it has pk/id/code or it's a raw dict
+                    # 6. Fallback: it has pk/id/code or it's a raw dict
                     if not found and ("pk" in it or "id" in it or "code" in it):
                         found.append(it)
                     return found
