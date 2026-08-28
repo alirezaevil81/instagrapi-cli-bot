@@ -29,25 +29,25 @@ def main():
             run_post_likers_bot()
             return
 
-    show_banner("Instagram Bot Hub", "Select bot mode to run")
+    show_banner("Instagram Bot Hub", "Select bot mode to run & automate your Instagram actions")
 
     choice = questionary.select(
         "Select bot mode to run:\n  ↪ " + fix_persian("انتخاب ربات برای اجرا:"),
         choices=[
             questionary.Choice(
-                title=f"1. Timeline Feed Liker (Continuous Feed Liker with Auto-Refresh)\n   ↪ {fix_persian('لایک مداوم پست‌های فید تایم‌لاین با رفرش خودکار')}",
+                title=f":newspaper: 1. Timeline Feed Liker (Continuous Feed Liker with Auto-Refresh)\n   ↪ {fix_persian('لایک مداوم پست‌های فید تایم‌لاین با رفرش خودکار')}",
                 value="timeline"
             ),
             questionary.Choice(
-                title=f"2. Following Feed Liker (Automated Liker for Accounts You Follow)\n   ↪ {fix_persian('لایک خودکار جدیدترین پست‌های فالووینگ‌ها')}",
+                title=f":busts_in_silhouette: 2. Following Feed Liker (Automated Liker for Accounts You Follow)\n   ↪ {fix_persian('لایک خودکار جدیدترین پست‌های فالووینگ‌ها')}",
                 value="followers"
             ),
             questionary.Choice(
-                title=f"3. Post Likers Bot (Extract Likers & Automated Engagement)\n   ↪ {fix_persian('استخراج و تعامل با لایک‌کنندگان پست هدف')}",
+                title=f":target: 3. Post Likers Bot (Extract Likers & Automated Engagement)\n   ↪ {fix_persian('استخراج و تعامل با لایک‌کنندگان پست هدف')}",
                 value="posts"
             ),
             questionary.Choice(
-                title=f"4. Exit\n   ↪ {fix_persian('خروج از برنامه')}",
+                title=f":door: 4. Exit\n   ↪ {fix_persian('خروج از برنامه')}",
                 value="exit"
             ),
         ]
@@ -60,7 +60,7 @@ def main():
     elif choice == "posts":
         run_post_likers_bot()
     else:
-        console.print(f"[bold yellow]:wave: {fix_persian('با موفقیت خارج شدید.')} Goodbye![/bold yellow]")
+        console.print(f"\n[bold yellow]:wave: {fix_persian('با موفقیت خارج شدید.')} Goodbye![/bold yellow]\n")
 
 if __name__ == "__main__":
     main()

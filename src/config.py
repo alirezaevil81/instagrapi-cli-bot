@@ -22,14 +22,14 @@ def ensure_storage_directories():
 
 # Default Persian comments for automated interactions
 comments = [
-    "عالی 😊👍",
-    "فوق‌العاده ✨🌟",
-    "بی‌نظیر 😍👌",
-    "شگفت‌انگیز 🤩🎉",
-    "جذاب 😘💖",
-    "دوست‌داشتنی 🥰❤️",
-    "معرکه 😎🔥",
-    "تحسین‌برانگیز 👏🌈",
-    "ستودنی 🚀💫",
-    "درخشان 🌟😍"
+    "عالی :smiley::thumbs_up:",
+    "فوق‌العاده :sparkles::star:",
+    "بی‌نظیر :heart_eyes::ok_hand:",
+    "شگفت‌انگیز :star_struck::tada:",
+    "جذاب :kissing_heart::sparkling_heart:",
+    "دوست‌داشتنی :smiling_face_with_3_hearts::heart:",
+    "معرکه :sunglasses::fire:",
+    "تحسین‌برانگیز :clapping_hands::rainbow:",
+    "ستودنی :rocket::dizzy:",
+    "درخشان :star::heart_eyes:"
 ]

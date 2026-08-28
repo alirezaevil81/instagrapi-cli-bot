@@ -97,25 +97,25 @@ class Bot(Client):
             if saved_sessions:
                 choices = [
                     questionary.Choice(
-                        title=f"👤 @{u}\n   ↪ {fix_persian('نشست و سشن ذخیره‌شده')}",
+                        title=f":bust_in_silhouette: @{u}\n   ↪ {fix_persian('نشست و سشن ذخیره‌شده')}",
                         value=u
                     ) for u in saved_sessions
                 ]
                 choices.append(
                     questionary.Choice(
-                        title=f"🔑 Login via SessionID Cookie\n   ↪ {fix_persian('ورود مستقیم با SessionID کوکی اینستاگرام')}",
+                        title=f":key: Login via SessionID Cookie\n   ↪ {fix_persian('ورود مستقیم با SessionID کوکی اینستاگرام')}",
                         value="__sessionid__"
                     )
                 )
                 choices.append(
                     questionary.Choice(
-                        title=f"➕ Login with new account\n   ↪ {fix_persian('ورود با اکانت جدید')}",
+                        title=f":heavy_plus_sign: Login with new account\n   ↪ {fix_persian('ورود با اکانت جدید')}",
                         value="__new__"
                     )
                 )
                 choices.append(
                     questionary.Choice(
-                        title=f"🚪 Exit\n   ↪ {fix_persian('انصراف و خروج')}",
+                        title=f":door: Exit\n   ↪ {fix_persian('انصراف و خروج')}",
                         value="__exit__"
                     )
                 )
@@ -187,15 +187,15 @@ class Bot(Client):
                     "Select login method:\n  ↪ " + fix_persian("روش ورود به اکانت را انتخاب کنید:"),
                     choices=[
                         questionary.Choice(
-                            title=f"👤 Username & Password\n   ↪ {fix_persian('ورود با نام‌کاربری و رمز عبور')}",
+                            title=f":bust_in_silhouette: Username & Password\n   ↪ {fix_persian('ورود با نام‌کاربری و رمز عبور')}",
                             value="password"
                         ),
                         questionary.Choice(
-                            title=f"🔑 SessionID Cookie (Recommended)\n   ↪ {fix_persian('ورود مستقیم با SessionID کوکی اینستاگرام (پیشنهادی)')}",
+                            title=f":key: SessionID Cookie (Recommended)\n   ↪ {fix_persian('ورود مستقیم با SessionID کوکی اینستاگرام (پیشنهادی)')}",
                             value="sessionid"
                         ),
                         questionary.Choice(
-                            title=f"🚪 Exit\n   ↪ {fix_persian('انصراف و خروج')}",
+                            title=f":door: Exit\n   ↪ {fix_persian('انصراف و خروج')}",
                             value="exit"
                         ),
                     ]
@@ -788,12 +788,14 @@ class Bot(Client):
 
     def comment_user_post(self, media_id: str, comment_list: list = None, delay_range=None, username: str = "", user_pk: str = "") -> bool:
         """Comments on a post with instagrapi exception handling and SQLite audit logging."""
+        from rich.emoji import Emoji
         if comment_list is None:
             comment_list = comments
         try:
-            comment = choice(comment_list)
-            self.media_comment(media_id, comment)
-            log_success(f"Commented: '{fix_persian(comment)}' on post {media_id} :speech_balloon:")
+            raw_comment = choice(comment_list)
+            comment_text = Emoji.replace(raw_comment)
+            self.media_comment(media_id, comment_text)
+            log_success(f"Commented: '{fix_persian(raw_comment)}' on post {media_id} :speech_balloon:")
             record_interaction(
                 account_username=getattr(self, "username", "self"),
                 action_type="comment",

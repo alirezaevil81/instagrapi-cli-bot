@@ -12,9 +12,12 @@ from src.utils import (
     log_print,
     log_sleep,
     show_banner,
+    show_section_divider,
+    show_stats_card,
     console,
     log_error,
     log_warning,
+    log_success,
     fix_persian,
     format_bilingual_prompt,
     ask_yes_no,
@@ -63,10 +66,10 @@ def main():
         english_title="Select number of recent posts to check per user",
         persian_title="تعداد پست‌های بررسی‌شده برای هر کاربر",
         options=[
-            (2, "2 posts", "سریع و سبک", "⚡"),
-            (4, "4 posts", "پیشنهادی و استاندارد", "🛡️"),
-            (6, "6 posts", "عمیق‌تر", "🔍"),
-            (10, "10 posts", "بررسی کامل‌تر", "🌟"),
+            (2, "2 posts", "سریع و سبک", ":zap:"),
+            (4, "4 posts", "پیشنهادی و استاندارد", ":shield:"),
+            (6, "6 posts", "عمیق‌تر", ":mag:"),
+            (10, "10 posts", "بررسی کامل‌تر", ":star:"),
         ],
         default_val=4,
         custom_prompt_en="Enter custom number of posts to check",
@@ -91,10 +94,10 @@ def main():
         english_title="Select cooldown after processing each user (minutes)",
         persian_title="استراحت بعد از پردازش هر کاربر به دقیقه",
         options=[
-            (1, "1 minute", "سریع", "⚡"),
-            (2, "2 minutes", "پیشنهادی و امن", "🛡️"),
-            (4, "4 minutes", "محافظه‌کارانه", "⏳"),
-            (6, "6 minutes", "استراحت طولانی", "💤"),
+            (1, "1 minute", "سریع", ":zap:"),
+            (2, "2 minutes", "پیشنهادی و امن", ":shield:"),
+            (4, "4 minutes", "محافظه‌کارانه", ":hourglass:"),
+            (6, "6 minutes", "استراحت طولانی", ":sleeping:"),
         ],
         default_val=2,
         custom_prompt_en="Enter custom cooldown minutes after each user",
@@ -108,10 +111,10 @@ def main():
         english_title="Select cooldown after completing a full round (hours)",
         persian_title="استراحت در پایان هر دور به ساعت",
         options=[
-            (0.5, "0.5 hour (30 mins)", "نیم ساعت", "⚡"),
-            (1.0, "1.0 hour", "۱ ساعت - پیشنهادی", "🛡️"),
-            (2.0, "2.0 hours", "۲ ساعت - امن", "⏳"),
-            (4.0, "4.0 hours", "۴ ساعت - طولانی", "💤"),
+            (0.5, "0.5 hour (30 mins)", "نیم ساعت", ":zap:"),
+            (1.0, "1.0 hour", "۱ ساعت - پیشنهادی", ":shield:"),
+            (2.0, "2.0 hours", "۲ ساعت - امن", ":hourglass:"),
+            (4.0, "4.0 hours", "۴ ساعت - طولانی", ":sleeping:"),
         ],
         default_val=1.0,
         custom_prompt_en="Enter custom cooldown hours after full loop",
@@ -131,13 +134,18 @@ def main():
 
     # ------------ Processing Loop ------------
     loop = 0
+    total_actions_all_time = 0
     try:
         while True:
+            loop += 1
+            show_section_divider(f":repeat: Loop {loop}: Processing Following Accounts", style="bold magenta")
             following_list = list(followings.values())
+            loop_liked_count = 0
+
             for i, user in enumerate(following_list, start=1):
                 username = getattr(user, 'username', str(user))
                 user_pk = getattr(user, 'pk', str(user))
-                log_print(f"[bold cyan]:mag: User {i}/{len(following_list)}:[/bold cyan] Checking @[bold cyan]{username}[/bold cyan]")
+                console.print(f"\n[bold cyan]─── [:bust_in_silhouette: User {i}/{len(following_list)}] ───[/bold cyan] @[bold green]{username}[/bold green] (ID: [yellow]{user_pk}[/yellow])")
 
                 user_posts = bot.get_user_posts(str(user_pk), amount=posts_amount)
                 if user_posts:
@@ -146,7 +154,7 @@ def main():
                         post_pk = str(getattr(post, 'pk', str(post)))
                         has_liked = getattr(post, 'has_liked', False)
                         if has_liked:
-                            log_warning(f"Post {post_pk} already liked previously")
+                            log_warning(f"Post {post_pk} already liked previously :fast_forward:")
                         else:
                             # 1. Mark post as seen (Impression)
                             bot.seen_user_post(post_pk, username=username, user_pk=str(user_pk))
@@ -157,6 +165,8 @@ def main():
                             liked = bot.like_user_post(post_pk, username=username, user_pk=str(user_pk))
                             if liked:
                                 action_performed = True
+                                loop_liked_count += 1
+                                total_actions_all_time += 1
                             # 4. Comment on post
                             if commenting:
                                 bot.comment_user_post(post_pk, username=username, user_pk=str(user_pk))
@@ -164,15 +174,32 @@ def main():
                     if action_performed:
                         log_sleep(sleep_after_iteration, message=f"Cooling down after processing @{username}")
                 else:
-                    log_warning(f"No recent posts found for @{username}")
+                    log_warning(f"No recent public posts found for @{username} :warning:")
 
-            loop += 1
             hours_str = str(round(sleep_after_loop / 3600, 2))
-            log_warning(f":repeat: Completed [bold blue]{loop}[/bold blue] rounds. Sleeping for [bold magenta]{hours_str}[/bold magenta] hours. :sleeping:")
-            log_sleep(sleep_after_loop, message=f"Round {loop} complete, waiting for next cycle")
+            show_stats_card(
+                f"Loop {loop} Completed",
+                {
+                    ":target: New Posts Liked This Loop": f"[bold green]{loop_liked_count}[/bold green]",
+                    ":star: Total Lifetime Actions": f"[bold magenta]{total_actions_all_time}[/bold magenta]",
+                    ":busts_in_silhouette: Total Following Processed": f"[bold cyan]{len(following_list)}[/bold cyan]",
+                    ":sleeping: Cooldown Before Next Cycle": f"[bold yellow]{hours_str} hours[/bold yellow]"
+                },
+                border_style="green"
+            )
+            log_warning(f":repeat: Completed [bold blue]{loop}[/bold blue] loops. Sleeping for [bold magenta]{hours_str}[/bold magenta] hours. :sleeping:")
+            log_sleep(sleep_after_loop, message=f"Loop {loop} complete, waiting for next cycle")
 
     except KeyboardInterrupt:
-        log_warning("\nBot stopped by user safely. :hand:")
+        log_warning("\n:stop_sign: Bot stopped by user safely. :wave:")
+        show_stats_card(
+            "Session Summary (Stopped)",
+            {
+                ":heart: Total Posts Liked": f"[bold green]{total_actions_all_time}[/bold green]",
+                ":repeat: Total Loops Run": f"[bold cyan]{loop}[/bold cyan]"
+            },
+            border_style="yellow"
+        )
 
 if __name__ == "__main__":
     main()

@@ -6,6 +6,9 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
+from rich.rule import Rule
+from rich.columns import Columns
+from rich import box
 from rich.progress import (
     Progress,
     SpinnerColumn,
@@ -77,8 +80,8 @@ def ask_yes_no(english_question: str, persian_question: str, default: bool = Tru
     """
     import questionary
     prompt_text = f"{english_question}\n  ↪ {fix_persian(persian_question)}"
-    yes_choice = questionary.Choice(title=f"✅ Yes ({fix_persian('بله')})", value=True)
-    no_choice = questionary.Choice(title=f"❌ No ({fix_persian('خیر')})", value=False)
+    yes_choice = questionary.Choice(title=f":white_check_mark: Yes ({fix_persian('بله')})", value=True)
+    no_choice = questionary.Choice(title=f":x: No ({fix_persian('خیر')})", value=False)
     choices = [yes_choice, no_choice]
 
     choice = questionary.select(
@@ -115,7 +118,7 @@ def ask_choice_or_custom(
             default_choice = c
             
     custom_choice = questionary.Choice(
-        title=f"⚙️ Custom... ({fix_persian('تنظیم دلخواه و دستی')})",
+        title=f":gear: Custom... ({fix_persian('تنظیم دلخواه و دستی')})",
         value="__custom__"
     )
     choices.append(custom_choice)
@@ -161,10 +164,10 @@ def ask_api_delay_range(default_range: list = None) -> list:
         f"  ↪ {fix_persian('انتخاب بازه تاخیر پایه ریکوئست‌های اینستاگرام به ثانیه')}:"
     )
 
-    c_fast = questionary.Choice(title=f"⚡ 2 - 5 seconds ({fix_persian('سریع')})", value="2_5")
-    c_safe = questionary.Choice(title=f"🛡️ 3 - 7 seconds ({fix_persian('پیشنهادی و امن')})", value="3_7")
-    c_slow = questionary.Choice(title=f"⏳ 5 - 10 seconds ({fix_persian('محافظه‌کارانه و کند')})", value="5_10")
-    c_custom = questionary.Choice(title=f"⚙️ Custom interval... ({fix_persian('تنظیم دلخواه و دستی')})", value="custom")
+    c_fast = questionary.Choice(title=f":zap: 2 - 5 seconds ({fix_persian('سریع')})", value="2_5")
+    c_safe = questionary.Choice(title=f":shield: 3 - 7 seconds ({fix_persian('پیشنهادی و امن')})", value="3_7")
+    c_slow = questionary.Choice(title=f":hourglass: 5 - 10 seconds ({fix_persian('محافظه‌کارانه و کند')})", value="5_10")
+    c_custom = questionary.Choice(title=f":gear: Custom interval... ({fix_persian('تنظیم دلخواه و دستی')})", value="custom")
     choices = [c_fast, c_safe, c_slow, c_custom]
 
     selected = questionary.select(
@@ -214,10 +217,10 @@ def ask_delay_range(action_name: str = "likes", default_range: list = None) -> l
         f"  ↪ {fix_persian(f'انتخاب بازه تاخیر و وقفه بین {action_name} به ثانیه')}:"
     )
 
-    c_25_50 = questionary.Choice(title=f"⚡ 25 - 50 seconds ({fix_persian('سریع / متوسط')})", value="25_50")
-    c_60_90 = questionary.Choice(title=f"🛡️ 60 - 90 seconds ({fix_persian('پیشنهادی امن و استاندارد')})", value="60_90")
-    c_90_150 = questionary.Choice(title=f"⏳ 90 - 150 seconds ({fix_persian('خیلی امن و محافظه‌کارانه')})", value="90_150")
-    c_custom = questionary.Choice(title=f"⚙️ Custom interval... ({fix_persian('تنظیم دلخواه و دستی')})", value="custom")
+    c_25_50 = questionary.Choice(title=f":zap: 25 - 50 seconds ({fix_persian('سریع / متوسط')})", value="25_50")
+    c_60_90 = questionary.Choice(title=f":shield: 60 - 90 seconds ({fix_persian('پیشنهادی امن و استاندارد')})", value="60_90")
+    c_90_150 = questionary.Choice(title=f":hourglass: 90 - 150 seconds ({fix_persian('خیلی امن و محافظه‌کارانه')})", value="90_150")
+    c_custom = questionary.Choice(title=f":gear: Custom interval... ({fix_persian('تنظیم دلخواه و دستی')})", value="custom")
     choices = [c_25_50, c_60_90, c_90_150, c_custom]
 
     selected = questionary.select(
@@ -354,24 +357,63 @@ def log_sleep(seconds: int, message: str = "Sleeping for safety / cooldown", _st
             time.sleep(frac)
 
 def show_banner(title: str, subtitle: str = ""):
-    """Displays a rich banner for CLI start using Rich emoji markup."""
-    text_content = f":robot: [bold cyan]{title}[/bold cyan]\n"
+    """Displays a stylized Rich banner for CLI start using Rich emoji markup and rounded borders."""
+    text_content = f":robot: [bold bright_cyan]{title}[/bold bright_cyan]\n"
     if subtitle:
-        text_content += f"[dim white]{subtitle}[/dim white]\n"
-    console.print(Panel(Text.from_markup(text_content), border_style="bright_blue", expand=False))
+        text_content += f"[dim bright_white]:sparkles: {subtitle}[/dim bright_white]\n"
+    console.print(Panel(
+        Text.from_markup(text_content.strip()),
+        box=box.ROUNDED,
+        border_style="bright_blue",
+        padding=(1, 2),
+        expand=False
+    ))
     try:
         get_file_logger().info(f"=== {title} ({subtitle}) ===")
     except Exception:
         pass
 
+def show_section_divider(title: str = "", style: str = "bold magenta"):
+    """Draws an elegant Rich Rule divider across the console."""
+    if title:
+        console.print(Rule(title, style=style))
+    else:
+        console.print(Rule(style=style))
+
+def show_stats_card(title: str, stats: dict, border_style: str = "cyan"):
+    """
+    Renders a sleek summary statistics card with Rich box borders and emojis.
+    """
+    grid = Table.grid(padding=(0, 2))
+    grid.add_column(style="bold white", justify="left")
+    grid.add_column(style="bold yellow", justify="right")
+
+    for k, v in stats.items():
+        grid.add_row(k, str(v))
+
+    panel = Panel(
+        grid,
+        title=f":bar_chart: [bold]{title}[/bold]",
+        box=box.ROUNDED,
+        border_style=border_style,
+        padding=(1, 2),
+        expand=False
+    )
+    console.print(panel)
+
 def show_user_table(users: list, title: str = "Target Users"):
-    """Renders a Rich table of Instagram users with Rich emoji icons."""
-    table = Table(title=f":clipboard: {title} ({len(users)} users)", border_style="cyan", header_style="bold magenta")
-    table.add_column("Index", justify="right", style="cyan", no_wrap=True)
-    table.add_column("User ID (PK)", style="yellow")
-    table.add_column("Username", style="bold green")
-    table.add_column("Full Name", style="white")
-    table.add_column("Privacy", justify="center")
+    """Renders a Rich table of Instagram users with Rich emoji icons and rounded borders."""
+    table = Table(
+        title=f":clipboard: [bold cyan]{title}[/bold cyan] ([bold yellow]{len(users)}[/bold yellow] users)",
+        box=box.ROUNDED,
+        border_style="cyan",
+        header_style="bold magenta"
+    )
+    table.add_column(":hash: #", justify="center", style="cyan", no_wrap=True, width=5)
+    table.add_column(":id: User ID (PK)", style="yellow", justify="center")
+    table.add_column(":bust_in_silhouette: Username", style="bold green")
+    table.add_column(":name_badge: Full Name", style="white")
+    table.add_column(":lock: Privacy", justify="center")
 
     for i, user in enumerate(users, start=1):
         uid = str(getattr(user, 'pk', '-'))
@@ -379,6 +421,7 @@ def show_user_table(users: list, title: str = "Target Users"):
         fname = str(getattr(user, 'full_name', '-'))
         is_priv = getattr(user, 'is_private', False)
         privacy = "[red]:lock: Private[/red]" if is_priv else "[green]:globe_with_meridians: Public[/green]"
-        table.add_row(str(i), uid, uname, fix_persian(fname), privacy)
+        table.add_row(str(i), uid, f"@{uname}", fix_persian(fname) if fname else "[dim]-[/dim]", privacy)
 
     console.print(table)
+

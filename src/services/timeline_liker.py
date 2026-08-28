@@ -8,6 +8,7 @@ import time
 from random import randint
 import questionary
 from rich.table import Table
+from rich import box
 
 from src.core.client import Bot
 from src.database.engine import init_db
@@ -16,6 +17,8 @@ from src.utils import (
     log_print,
     log_sleep,
     show_banner,
+    show_section_divider,
+    show_stats_card,
     console,
     log_error,
     log_warning,
@@ -47,17 +50,18 @@ def format_relative_time(timestamp: float) -> str:
 def display_timeline_posts_table(posts: list) -> None:
     """Renders a beautiful Rich Table showing all timeline posts sorted newest to oldest."""
     table = Table(
-        title=f":newspaper: [bold cyan]{fix_persian('پست‌های استخراج‌شده فید تایم‌لاین')}[/bold cyan] (Newest -> Oldest)",
+        title=f":newspaper: [bold cyan]{fix_persian('پست‌های استخراج‌شده فید تایم‌لاین')}[/bold cyan] [dim](Newest :arrow_right: Oldest)[/dim]",
+        box=box.ROUNDED,
         show_header=True,
         header_style="bold magenta",
         expand=True
     )
-    table.add_column("#", style="dim", width=4, justify="center")
-    table.add_column("Author", style="bold cyan", width=18)
-    table.add_column("Published", style="green", width=14, justify="center")
-    table.add_column("Stats", style="yellow", width=14, justify="center")
-    table.add_column("Caption", style="white")
-    table.add_column("Status", style="bold", width=16, justify="center")
+    table.add_column(":hash: #", style="dim", width=4, justify="center")
+    table.add_column(":bust_in_silhouette: Author", style="bold cyan", width=18)
+    table.add_column(":clock1: Published", style="green", width=14, justify="center")
+    table.add_column(":chart_with_upwards_trend: Stats", style="yellow", width=16, justify="center")
+    table.add_column(":memo: Caption", style="white")
+    table.add_column(":pushpin: Status", style="bold", width=18, justify="center")
 
     for i, post in enumerate(posts, start=1):
         rel_time = format_relative_time(post["taken_at_ts"])
@@ -69,9 +73,9 @@ def display_timeline_posts_table(posts: list) -> None:
         
         is_already_liked = post.get("has_liked", False) or has_recent_interaction(post["pk"], "like")
         if is_already_liked:
-            status = "[dim green]Already Liked[/dim green]"
+            status = "[dim green]:white_check_mark: Already Liked[/dim green]"
         else:
-            status = "[bold yellow]Pending Like[/bold yellow]"
+            status = "[bold yellow]:hourglass: Pending Like[/bold yellow]"
 
         table.add_row(
             str(i),
@@ -117,10 +121,10 @@ def main():
         english_title="Select max feed pages to fetch per cycle",
         persian_title="حداکثر صفحات فید برای دریافت در هر دور",
         options=[
-            (3, "3 pages", "سریع و سبک", "⚡"),
-            (6, "6 pages", "پیشنهادی و استاندارد", "🛡️"),
-            (10, "10 pages", "عمیق‌تر", "🔍"),
-            (15, "15 pages", "حداکثر فید", "🚀"),
+            (3, "3 pages", "سریع و سبک", ":zap:"),
+            (6, "6 pages", "پیشنهادی و استاندارد", ":shield:"),
+            (10, "10 pages", "عمیق‌تر", ":mag:"),
+            (15, "15 pages", "حداکثر فید", ":rocket:"),
         ],
         default_val=6,
         custom_prompt_en="Enter custom max pages count",
@@ -136,10 +140,10 @@ def main():
         english_title="Select cooldown before refreshing timeline feed again (minutes)",
         persian_title="فاصله زمانی استراحت تا رفرش مجدد فید به دقیقه",
         options=[
-            (1, "1 minute", "سریع", "⚡"),
-            (3, "3 minutes", "پیشنهادی و امن", "🛡️"),
-            (5, "5 minutes", "محافظه‌کارانه", "⏳"),
-            (10, "10 minutes", "استراحت طولانی", "💤"),
+            (1, "1 minute", "سریع", ":zap:"),
+            (3, "3 minutes", "پیشنهادی و امن", ":shield:"),
+            (5, "5 minutes", "محافظه‌کارانه", ":hourglass:"),
+            (10, "10 minutes", "استراحت طولانی", ":sleeping:"),
         ],
         default_val=3,
         custom_prompt_en="Enter custom cooldown minutes",
@@ -171,8 +175,8 @@ def main():
     try:
         while True:
             round_num += 1
-            console.print(f"\n[bold magenta]═══════════════ :repeat: Round {round_num}: Refreshing Timeline Feed ═══════════════[/bold magenta]")
-            log_print(f"Fetching up to [bold cyan]{max_pages}[/bold cyan] pages of timeline feed...")
+            show_section_divider(f":repeat: Round {round_num}: Refreshing Timeline Feed", style="bold magenta")
+            log_print(f"Fetching up to [bold cyan]{max_pages}[/bold cyan] pages of timeline feed... :hourglass:")
 
             # 1. Fetch posts from timeline feed (all available posts, no time filter)
             recent_posts = bot.fetch_timeline_feed_posts_24h(
@@ -182,7 +186,7 @@ def main():
             )
 
             if not recent_posts:
-                log_warning("No posts found in your timeline feed.")
+                log_warning("No posts found in your timeline feed. :warning:")
                 log_sleep(
                     refresh_cooldown_seconds,
                     message=f"Waiting {refresh_cooldown_seconds//60}m before next feed refresh"
@@ -210,7 +214,7 @@ def main():
                 )
                 continue
 
-            log_print(f"Found [bold yellow]{len(unliked_posts)}[/bold yellow] unliked posts to process in order from [bold green]NEWEST -> OLDEST[/bold green] :heart_eyes:")
+            log_print(f"Found [bold yellow]{len(unliked_posts)}[/bold yellow] unliked posts to process in order from [bold green]NEWEST :arrow_right: OLDEST[/bold green] :heart_eyes:")
 
             round_liked_count = 0
             # 4. Iterate and like posts from newest to oldest
@@ -220,7 +224,7 @@ def main():
                 author_pk = post["author_pk"]
                 rel_time = format_relative_time(post["taken_at_ts"])
 
-                console.print(f"\n[bold cyan]─── [Post {idx}/{len(unliked_posts)}] ───[/bold cyan] @[bold yellow]{author}[/bold yellow] ([green]{rel_time}[/green]) | Media PK: {pk}")
+                console.print(f"\n[bold cyan]─── [:camera: Post {idx}/{len(unliked_posts)}] ───[/bold cyan] @[bold yellow]{author}[/bold yellow] ([green]:clock1: {rel_time}[/green]) | :id: PK: {pk}")
 
                 # Step A: Mark post as seen (Natural Impression)
                 bot.seen_user_post(pk, username=author, user_pk=author_pk)
@@ -251,8 +255,15 @@ def main():
                     )
 
             # 5. Round Completion & Summary
-            log_success(
-                f":tada: Round [bold cyan]{round_num}[/bold cyan] complete! Liked [bold green]{round_liked_count}[/bold green] new posts (Total Session: [bold magenta]{total_liked_all_time}[/bold magenta])."
+            show_stats_card(
+                f"Round {round_num} Statistics",
+                {
+                    ":target: New Posts Liked This Round": f"[bold green]{round_liked_count}[/bold green]",
+                    ":star: Total Posts Liked (Session)": f"[bold magenta]{total_liked_all_time}[/bold magenta]",
+                    ":newspaper: Feed Posts Scanned": f"[bold cyan]{len(recent_posts)}[/bold cyan]",
+                    ":repeat: Next Refresh": f"[bold yellow]{mins_text}[/bold yellow]"
+                },
+                border_style="green"
             )
 
             # 6. Cooldown before refreshing feed again
@@ -264,8 +275,15 @@ def main():
             )
 
     except KeyboardInterrupt:
-        log_warning("\n:hand: Timeline Feed Liker Bot stopped safely by user.")
-        log_success(f"Session Summary: Liked [bold green]{total_liked_all_time}[/bold green] posts across [bold cyan]{round_num}[/bold cyan] rounds.")
+        log_warning("\n:stop_sign: Timeline Feed Liker Bot stopped safely by user.")
+        show_stats_card(
+            "Session Summary (Stopped)",
+            {
+                ":heart: Total Liked Posts": f"[bold green]{total_liked_all_time}[/bold green]",
+                ":repeat: Total Rounds Run": f"[bold cyan]{round_num}[/bold cyan]"
+            },
+            border_style="yellow"
+        )
 
 if __name__ == "__main__":
     main()

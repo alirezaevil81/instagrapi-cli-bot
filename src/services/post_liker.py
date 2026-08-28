@@ -29,6 +29,8 @@ from src.database import (
 from src.utils import (
     show_banner,
     show_user_table,
+    show_section_divider,
+    show_stats_card,
     console,
     log_print,
     log_success,
@@ -177,10 +179,10 @@ def main():
         english_title="Select number of recent posts to like per target user",
         persian_title="تعداد پست‌های لایک‌شده برای هر کاربر هدف",
         options=[
-            (1, "1 post", "سریع و سبک", "⚡"),
-            (3, "3 posts", "پیشنهادی و استاندارد", "🛡️"),
-            (5, "5 posts", "عمیق‌تر", "🔍"),
-            (8, "8 posts", "لایک حداکثری", "🌟"),
+            (1, "1 post", "سریع و سبک", ":zap:"),
+            (3, "3 posts", "پیشنهادی و استاندارد", ":shield:"),
+            (5, "5 posts", "عمیق‌تر", ":mag:"),
+            (8, "8 posts", "لایک حداکثری", ":star:"),
         ],
         default_val=3,
         custom_prompt_en="Enter custom number of posts to like per user",
@@ -197,13 +199,14 @@ def main():
 
     # ----------------- Engagement Loop -----------------
     console.print(f"\n[bold green]:rocket: Starting interaction with {len(users)} target users with custom delays...[/bold green]\n")
+    processed_count = 0
 
     try:
         for i, user in enumerate(list(users), start=1):
             uname = str(getattr(user, 'username', str(user)))
             upk = str(getattr(user, 'pk', str(user)))
 
-            log_print(f"[bold cyan]:mag: [{i}/{len(users)}][/bold cyan] Interacting with @[bold green]{uname}[/bold green] (ID: {upk})")
+            show_section_divider(f":bust_in_silhouette: Target User {i}/{len(users)}: @{uname}", style="bold cyan")
 
             user_posts = cl.get_user_posts(upk, amount=posts_amount)
 
@@ -217,8 +220,9 @@ def main():
                     log_sleep(view_dwell, message=f"Viewing post naturally ({view_dwell}s)")
                     # 3. Perform like action
                     cl.like_user_post(post_pk, delay_range=like_delay_range, username=uname, user_pk=upk)
+                processed_count += 1
             else:
-                log_warning(f"No public posts found on profile @{uname}")
+                log_warning(f"No public posts found on profile @{uname} :warning:")
 
             # Remove completed user from SQLite queue
             remove_user_from_queue(upk)
@@ -229,12 +233,20 @@ def main():
             if rem_count == 0:
                 log_success(":tada: All target users processed! SQLite queue cleared.")
             else:
-                log_print(f"[bold blue]Remaining users in queue:[/bold blue] [bold magenta]{rem_count}[/bold magenta]")
+                log_print(f":bar_chart: [bold blue]Remaining users in queue:[/bold blue] [bold magenta]{rem_count}[/bold magenta]")
 
     except KeyboardInterrupt:
-        log_warning(f"\nProcess paused by user. Progress safely retained in SQLite database :floppy_disk:.")
+        log_warning(f"\n:stop_sign: Process paused by user. Progress safely retained in SQLite database :floppy_disk:.")
 
-    console.print("\n[bold blue]━━━━━━━━━━━━━━━━━━━━━━━━ :sparkles: All Done :sparkles: ━━━━━━━━━━━━━━━━━━━━━━━━[/bold blue]")
+    show_stats_card(
+        "Post Likers Engagement Summary",
+        {
+            ":busts_in_silhouette: Processed Target Users": f"[bold green]{processed_count}[/bold green]",
+            ":hourglass: Remaining in Queue": f"[bold yellow]{get_queue_count()}[/bold yellow]"
+        },
+        border_style="magenta"
+    )
+    console.print("\n[bold blue]━━━━━━━━━━━━━━━━━━━━━━━━ :sparkles: All Done :sparkles: ━━━━━━━━━━━━━━━━━━━━━━━━[/bold blue]\n")
 
 
 if __name__ == "__main__":
