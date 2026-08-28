@@ -371,6 +371,148 @@ class Bot(Client):
             log_error(f"Cannot fetch posts for user {user_id}: ", str(e))
         return user_posts
 
+    def fetch_timeline_feed_posts_24h(self, max_pages: int = 6, cutoff_hours: float = 24.0) -> list:
+        """
+        Fetches timeline feed posts paginating through multiple pages,
+        filters for posts published in the last `cutoff_hours` (default 24h),
+        skips ads/promotions, and sorts them from newest to oldest.
+        """
+        import time
+        from datetime import datetime, timezone
+
+        posts = []
+        seen_pks = set()
+        now_ts = time.time()
+        cutoff_ts = now_ts - (cutoff_hours * 3600)
+
+        max_id = None
+        consecutive_old_pages = 0
+
+        for page in range(1, max_pages + 1):
+            try:
+                reason = "pull_to_refresh" if page == 1 else "paginating"
+                feed_data = self.get_timeline_feed(reason=reason, max_id=max_id) if max_id else self.get_timeline_feed(reason=reason)
+                
+                if not feed_data or not isinstance(feed_data, dict):
+                    break
+                    
+                feed_items = feed_data.get("feed_items", [])
+                if not feed_items:
+                    break
+
+                page_new_count = 0
+                page_old_count = 0
+
+                for item in feed_items:
+                    media_data = None
+                    if isinstance(item, dict):
+                        # Skip ads / sponsored items
+                        if item.get("is_ad") or item.get("injected") or item.get("ad_action"):
+                            continue
+                        media_data = item.get("media_or_ad", item)
+                        if not isinstance(media_data, dict):
+                            continue
+                        if media_data.get("is_ad") or media_data.get("ad_action") or media_data.get("link"):
+                            continue
+                    else:
+                        media_data = item
+
+                    # Extract PK
+                    pk = str(getattr(media_data, "pk", "") or (media_data.get("pk") if isinstance(media_data, dict) else "") or (media_data.get("id") if isinstance(media_data, dict) else ""))
+                    if not pk or pk in seen_pks:
+                        continue
+
+                    # Extract timestamp
+                    taken_at_raw = getattr(media_data, "taken_at", None) if not isinstance(media_data, dict) else media_data.get("taken_at")
+                    taken_at_ts = None
+                    if isinstance(taken_at_raw, datetime):
+                        taken_at_ts = taken_at_raw.timestamp()
+                    elif isinstance(taken_at_raw, (int, float)):
+                        taken_at_ts = float(taken_at_raw)
+                    elif isinstance(taken_at_raw, str) and taken_at_raw.isdigit():
+                        taken_at_ts = float(taken_at_raw)
+
+                    if not taken_at_ts:
+                        continue
+
+                    # Extract author
+                    user_info = getattr(media_data, "user", {}) if not isinstance(media_data, dict) else media_data.get("user", {})
+                    author_username = getattr(user_info, "username", "") if not isinstance(user_info, dict) else user_info.get("username", "")
+                    author_pk = str(getattr(user_info, "pk", "") if not isinstance(user_info, dict) else user_info.get("pk", ""))
+                    author_full_name = getattr(user_info, "full_name", "") if not isinstance(user_info, dict) else user_info.get("full_name", "")
+
+                    # Extract like status
+                    has_liked = bool(getattr(media_data, "has_liked", False) if not isinstance(media_data, dict) else media_data.get("has_liked", False))
+
+                    # Extract caption
+                    caption_raw = getattr(media_data, "caption", "") if not isinstance(media_data, dict) else media_data.get("caption")
+                    caption_text = ""
+                    if isinstance(caption_raw, dict):
+                        caption_text = caption_raw.get("text", "")
+                    elif isinstance(caption_raw, str):
+                        caption_text = caption_raw
+                    elif hasattr(caption_raw, "text"):
+                        caption_text = getattr(caption_raw, "text", "")
+
+                    code = getattr(media_data, "code", "") if not isinstance(media_data, dict) else media_data.get("code", "")
+                    like_count = getattr(media_data, "like_count", 0) if not isinstance(media_data, dict) else media_data.get("like_count", 0)
+                    comment_count = getattr(media_data, "comment_count", 0) if not isinstance(media_data, dict) else media_data.get("comment_count", 0)
+
+                    seen_pks.add(pk)
+
+                    # Check cutoff condition
+                    if taken_at_ts >= cutoff_ts:
+                        page_new_count += 1
+                        posts.append({
+                            "pk": pk,
+                            "code": code,
+                            "author_username": author_username,
+                            "author_pk": author_pk,
+                            "author_full_name": author_full_name,
+                            "taken_at_ts": taken_at_ts,
+                            "taken_at_dt": datetime.fromtimestamp(taken_at_ts, tz=timezone.utc),
+                            "has_liked": has_liked,
+                            "caption_text": caption_text,
+                            "like_count": like_count,
+                            "comment_count": comment_count,
+                        })
+                    else:
+                        page_old_count += 1
+
+                # Check pagination cursor
+                next_max_id = feed_data.get("next_max_id")
+                more_available = feed_data.get("more_available", False)
+                if not next_max_id or not more_available:
+                    break
+
+                max_id = next_max_id
+
+                if page_old_count > 0 and page_new_count == 0:
+                    consecutive_old_pages += 1
+                    if consecutive_old_pages >= 2:
+                        break
+                else:
+                    consecutive_old_pages = 0
+
+                time.sleep(randint(1, 3))
+
+            except FeedbackRequired as fb:
+                log_error(f"Instagram Feedback Required during feed fetch: {fb}")
+                break
+            except PleaseWaitFewMinutes:
+                log_warning("Rate limit hit during feed fetch. Instagram requested cooldown.")
+                break
+            except (LoginRequired, ClientLoginRequired):
+                log_error("Session expired during feed fetch.")
+                break
+            except Exception as e:
+                log_error(f"Error fetching timeline page {page}: ", str(e))
+                break
+
+        # Sort posts from newest to oldest (descending timestamp)
+        posts.sort(key=lambda p: p["taken_at_ts"], reverse=True)
+        return posts
+
     def perform_warmup_actions(self, max_feed_items: int = 4, view_stories: bool = True) -> None:
         """
         Human-like warm-up: reads timeline feed and marks recent stories as seen
