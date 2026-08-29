@@ -176,6 +176,7 @@ def main():
     try:
         while True:
             round_num += 1
+            mins_text = f"{refresh_cooldown_seconds // 60}m" if refresh_cooldown_seconds >= 60 else f"{refresh_cooldown_seconds}s"
             show_section_divider(f":repeat: Round {round_num}: Refreshing Timeline Feed", style="bold magenta")
             log_print(f"Fetching up to [bold cyan]{max_pages}[/bold cyan] pages of timeline feed... :hourglass:")
 
@@ -190,7 +191,7 @@ def main():
                 log_warning("No posts found in your timeline feed. :warning:")
                 log_sleep(
                     refresh_cooldown_seconds,
-                    message=f"Waiting {refresh_cooldown_seconds//60}m before next feed refresh"
+                    message=f"Waiting {mins_text} before next feed refresh"
                 )
                 continue
 
@@ -207,7 +208,6 @@ def main():
 
             if not unliked_posts:
                 log_success(f":sparkles: [bold green]All {len(recent_posts)} posts in the current feed are already liked![/bold green]")
-                mins_text = f"{refresh_cooldown_seconds // 60}m" if refresh_cooldown_seconds >= 60 else f"{refresh_cooldown_seconds}s"
                 log_print(f"Cooling down for [bold cyan]{mins_text}[/bold cyan] before refreshing timeline for new incoming posts... :sleeping:")
                 log_sleep(
                     refresh_cooldown_seconds,
