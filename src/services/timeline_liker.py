@@ -11,6 +11,7 @@ from rich.table import Table
 from rich import box
 
 from src.core.client import Bot
+from src.config import load_comments
 from src.database.engine import init_db
 from src.database.repository import has_recent_interaction
 from src.utils import (
@@ -160,8 +161,24 @@ def main():
         default=False
     )
     if commenting:
-        log_print("Automated commenting is [bold green]ENABLED[/bold green] :white_check_mark:")
+        current_comments = load_comments()
+        if not current_comments:
+            log_warning("Notice: [bold yellow]comments.txt[/bold yellow] is currently empty. Please write your custom comments into [bold yellow]comments.txt[/bold yellow]! :warning:")
+        else:
+            log_print(f"Automated commenting is [bold green]ENABLED[/bold green] ({len(current_comments)} comments loaded from [bold yellow]comments.txt[/bold yellow]) :white_check_mark:")
         bot.comment_delay_range = ask_delay_range("comments (کامنت‌ها)", default_range=[60, 90])
+
+    # Story Interaction Toggle (Selectable Yes/No)
+    story_interaction = ask_yes_no(
+        "Enable automated story viewing & liking for authors with active stories?",
+        "مشاهده و لایک خودکار تمام استوری‌های فعال منتشرکننده پست؟",
+        default=True
+    )
+    if story_interaction:
+        log_print("Automated Story Viewing & Liking is [bold green]ENABLED (All Active Stories)[/bold green] :clapper: :heart:")
+        bot.story_delay_range = ask_delay_range("story interactions (تعامل با استوری)", default_range=[2, 5])
+    else:
+        log_print("Automated Story Interaction is [bold red]DISABLED[/bold red] :cross_mark:")
 
     # Execute warm-up if enabled
     if enable_warmup:
@@ -172,6 +189,8 @@ def main():
     # ------------ Continuous Feed Refresh & Like Loop ------------
     round_num = 0
     total_liked_all_time = 0
+    total_stories_seen_all_time = 0
+    total_stories_liked_all_time = 0
 
     try:
         while True:
@@ -218,7 +237,10 @@ def main():
             log_print(f"Found [bold yellow]{len(unliked_posts)}[/bold yellow] unliked posts to process in order from [bold green]NEWEST :arrow_right: OLDEST[/bold green] :heart_eyes:")
 
             round_liked_count = 0
-            # 4. Iterate and like posts from newest to oldest
+            round_stories_seen = 0
+            round_stories_liked = 0
+
+            # 4. Iterate and process authors & like posts from newest to oldest
             for idx, post in enumerate(unliked_posts, start=1):
                 pk = post["pk"]
                 author = post["author_username"]
@@ -226,6 +248,19 @@ def main():
                 rel_time = format_relative_time(post["taken_at_ts"])
 
                 console.print(f"\n[bold cyan]─── [:camera: Post {idx}/{len(unliked_posts)}] ───[/bold cyan] @[bold yellow]{author}[/bold yellow] ([green]:clock1: {rel_time}[/green]) | :id: PK: {pk}")
+
+                # Step 0: Process all active stories of author (View + Like non-randomly)
+                if story_interaction and author_pk:
+                    st_seen, st_liked = bot.process_user_stories(
+                        user_pk=str(author_pk),
+                        username=str(author),
+                        delay_range=bot.story_delay_range,
+                        like_stories=True
+                    )
+                    round_stories_seen += st_seen
+                    round_stories_liked += st_liked
+                    total_stories_seen_all_time += st_seen
+                    total_stories_liked_all_time += st_liked
 
                 # Step A: Mark post as seen (Natural Impression)
                 bot.seen_user_post(pk, username=author, user_pk=author_pk)
@@ -256,14 +291,20 @@ def main():
                     )
 
             # 5. Round Completion & Summary
+            round_stats = {
+                ":target: New Posts Liked This Round": f"[bold green]{round_liked_count}[/bold green]",
+                ":star: Total Posts Liked (Session)": f"[bold magenta]{total_liked_all_time}[/bold magenta]"
+            }
+            if story_interaction:
+                round_stats[":clapper: Stories Viewed (Round / Total)"] = f"[bold cyan]{round_stories_seen} / {total_stories_seen_all_time}[/bold cyan]"
+                round_stats[":heart: Stories Liked (Round / Total)"] = f"[bold green]{round_stories_liked} / {total_stories_liked_all_time}[/bold green]"
+
+            round_stats[":newspaper: Feed Posts Scanned"] = f"[bold cyan]{len(recent_posts)}[/bold cyan]"
+            round_stats[":repeat: Next Refresh"] = f"[bold yellow]{mins_text}[/bold yellow]"
+
             show_stats_card(
                 f"Round {round_num} Statistics",
-                {
-                    ":target: New Posts Liked This Round": f"[bold green]{round_liked_count}[/bold green]",
-                    ":star: Total Posts Liked (Session)": f"[bold magenta]{total_liked_all_time}[/bold magenta]",
-                    ":newspaper: Feed Posts Scanned": f"[bold cyan]{len(recent_posts)}[/bold cyan]",
-                    ":repeat: Next Refresh": f"[bold yellow]{mins_text}[/bold yellow]"
-                },
+                round_stats,
                 border_style="green"
             )
 
@@ -277,12 +318,17 @@ def main():
 
     except KeyboardInterrupt:
         log_warning("\n:stop_sign: Timeline Feed Liker Bot stopped safely by user.")
+        summary_stats = {
+            ":heart: Total Liked Posts": f"[bold green]{total_liked_all_time}[/bold green]",
+            ":repeat: Total Rounds Run": f"[bold cyan]{round_num}[/bold cyan]"
+        }
+        if story_interaction:
+            summary_stats[":clapper: Total Stories Viewed"] = f"[bold cyan]{total_stories_seen_all_time}[/bold cyan]"
+            summary_stats[":heart: Total Stories Liked"] = f"[bold green]{total_stories_liked_all_time}[/bold green]"
+
         show_stats_card(
             "Session Summary (Stopped)",
-            {
-                ":heart: Total Liked Posts": f"[bold green]{total_liked_all_time}[/bold green]",
-                ":repeat: Total Rounds Run": f"[bold cyan]{round_num}[/bold cyan]"
-            },
+            summary_stats,
             border_style="yellow"
         )
 

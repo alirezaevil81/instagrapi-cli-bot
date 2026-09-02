@@ -7,6 +7,7 @@ from random import randint
 import questionary
 
 from src.core.client import Bot
+from src.config import load_comments
 from src.database.engine import init_db
 from src.utils import (
     log_print,
@@ -22,7 +23,6 @@ from src.utils import (
     format_bilingual_prompt,
     ask_yes_no,
     ask_delay_range,
-    ask_api_delay_range,
     ask_choice_or_custom,
     register_graceful_shutdown,
     em
@@ -85,10 +85,26 @@ def main():
         default=False
     )
     if commenting:
-        log_print("Automated commenting is [bold green]ENABLED[/bold green] :white_check_mark:")
+        current_comments = load_comments()
+        if not current_comments:
+            log_warning("Notice: [bold yellow]comments.txt[/bold yellow] is currently empty. Please write your custom comments into [bold yellow]comments.txt[/bold yellow]! :warning:")
+        else:
+            log_print(f"Automated commenting is [bold green]ENABLED[/bold green] ({len(current_comments)} comments loaded from [bold yellow]comments.txt[/bold yellow]) :white_check_mark:")
         bot.comment_delay_range = ask_delay_range("comments (کامنت‌ها)", default_range=[60, 90])
     else:
         log_print("Automated commenting is [bold red]DISABLED[/bold red] :cross_mark:")
+
+    # Story Interaction Toggle (Selectable Yes/No)
+    story_interaction = ask_yes_no(
+        "Enable automated story viewing & liking for followings with active stories?",
+        "مشاهده و لایک خودکار تمام استوری‌های فعال فالووینگ‌ها؟",
+        default=True
+    )
+    if story_interaction:
+        log_print("Automated Story Viewing & Liking is [bold green]ENABLED (All Active Stories)[/bold green] :clapper: :heart:")
+        bot.story_delay_range = ask_delay_range("story interactions (تعامل با استوری)", default_range=[2, 5])
+    else:
+        log_print("Automated Story Interaction is [bold red]DISABLED[/bold red] :cross_mark:")
 
     # Sleep after user with actions (Presets + Custom)
     sleep_iter_min = ask_choice_or_custom(
@@ -124,9 +140,6 @@ def main():
     )
     sleep_after_loop = int(sleep_loop_hours * 3600)
 
-    # API Request Delay range (Presets + Custom)
-    bot.delay_range = ask_api_delay_range(default_range=[3, 7])
-
     # Execute warm-up if enabled
     if enable_warmup:
         bot.perform_warmup_actions(max_feed_items=4, view_stories=True)
@@ -147,6 +160,17 @@ def main():
                 username = getattr(user, 'username', str(user))
                 user_pk = getattr(user, 'pk', str(user))
                 console.print(f"\n[bold cyan]─── [:bust_in_silhouette: User {i}/{len(following_list)}] ───[/bold cyan] @[bold green]{username}[/bold green] (ID: [yellow]{user_pk}[/yellow])")
+
+                # Process all active stories (Non-random: all active stories seen & liked)
+                if story_interaction and user_pk:
+                    st_seen, st_liked = bot.process_user_stories(
+                        user_pk=str(user_pk),
+                        username=str(username),
+                        delay_range=bot.story_delay_range,
+                        like_stories=True
+                    )
+                    if st_liked > 0:
+                        total_actions_all_time += st_liked
 
                 user_posts = bot.get_user_posts(str(user_pk), amount=posts_amount)
                 if user_posts:

@@ -31,8 +31,8 @@ from src.core.exceptions import (
 )
 
 import questionary
-from src.config import comments, SESSIONS_DIR, ensure_storage_directories
-from src.database.repository import record_interaction
+from src.config import comments, SESSIONS_DIR, ensure_storage_directories, load_comments, COMMENTS_FILE_PATH, DELAY_RANGE
+from src.database.repository import record_interaction, has_recent_interaction
 from src.utils.console import (
     log_print,
     log_sleep,
@@ -60,8 +60,10 @@ def default_challenge_code_handler(username: str, choice_method=None) -> str:
 class Bot(Client):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.delay_range = list(DELAY_RANGE)
         self.like_delay_range = [30, 60]
         self.comment_delay_range = [60, 90]
+        self.story_delay_range = [2, 5]
         self.posts_per_user = 3
         self.challenge_code_handler = default_challenge_code_handler
         # Ensure bloks_versioning_id is never empty to prevent CAA/Bloks hash errors
@@ -791,7 +793,10 @@ class Bot(Client):
         """Comments on a post with instagrapi exception handling and SQLite audit logging."""
         from rich.emoji import Emoji
         if comment_list is None:
-            comment_list = comments
+            comment_list = load_comments()
+        if not comment_list:
+            log_warning("No comments found in comments.txt! Please add your comments to comments.txt. :warning:")
+            return False
         try:
             raw_comment = choice(comment_list)
             comment_text = Emoji.replace(raw_comment)
@@ -803,7 +808,7 @@ class Bot(Client):
                 target_user_pk=str(user_pk),
                 target_username=str(username),
                 media_pk=str(media_id),
-                comment_text=comment,
+                comment_text=comment_text,
                 success=True
             )
             rng = delay_range or self.comment_delay_range
@@ -827,3 +832,168 @@ class Bot(Client):
         except Exception as e:
             log_error(f"Cannot comment on post {media_id}: ", str(e))
             return False
+
+    def get_user_active_stories(self, user_pk: str) -> list:
+        """Fetches active stories for a given user_pk safely."""
+        try:
+            stories = []
+            pk_int = int(user_pk)
+            if hasattr(self, "user_stories"):
+                stories = self.user_stories(pk_int) or []
+            elif hasattr(self, "user_stories_v1"):
+                stories = self.user_stories_v1(pk_int) or []
+            return stories
+        except (LoginRequired, ClientLoginRequired):
+            log_error("Login session expired while fetching user stories.")
+            return []
+        except FeedbackRequired as fb:
+            log_error(f"Instagram Feedback Required when fetching stories: {fb}")
+            return []
+        except PleaseWaitFewMinutes:
+            log_warning("Instagram rate limit hit while checking stories.")
+            return []
+        except Exception as e:
+            log_warning(f"Could not retrieve active stories for user {user_pk}: {e}")
+            return []
+
+    def seen_story(self, story_pk: str, username: str = "", user_pk: str = "") -> bool:
+        """Marks a story as seen with error catching and SQLite audit logging."""
+        try:
+            str_pk = str(story_pk)
+            if hasattr(self, "story_seen"):
+                try:
+                    self.story_seen([int(str_pk)])
+                except Exception:
+                    self.media_seen([str_pk])
+            else:
+                self.media_seen([str_pk])
+
+            record_interaction(
+                account_username=getattr(self, "username", "self"),
+                action_type="story_seen",
+                target_user_pk=str(user_pk),
+                target_username=str(username),
+                media_pk=str_pk,
+                success=True
+            )
+            return True
+        except MediaNotFound:
+            log_warning(f"Story {story_pk} was deleted or expired.")
+            return False
+        except FeedbackRequired as fb:
+            log_error(f"Instagram Feedback Required on story seen: {fb}")
+            return False
+        except PleaseWaitFewMinutes:
+            log_warning("Rate limit hit on seen story.")
+            return False
+        except (LoginRequired, ClientLoginRequired):
+            log_error("Session expired while marking story as seen.")
+            return False
+        except Exception as e:
+            log_warning(f"Could not mark story {story_pk} as seen: {e}")
+            return False
+
+    def like_story(self, story_pk: str, delay_range=None, username: str = "", user_pk: str = "") -> bool:
+        """Likes a story with instagrapi exception handling, SQLite logging and customizable delay."""
+        try:
+            str_pk = str(story_pk)
+            liked_successfully = False
+            if hasattr(self, "story_like"):
+                try:
+                    res = self.story_like(str_pk)
+                    liked_successfully = (res is not False)
+                except Exception:
+                    res = self.media_like(str_pk)
+                    liked_successfully = (res is not False)
+            else:
+                res = self.media_like(str_pk)
+                liked_successfully = (res is not False)
+
+            if liked_successfully:
+                log_success(f"Liked story {story_pk} of @{username} :heart:")
+                record_interaction(
+                    account_username=getattr(self, "username", "self"),
+                    action_type="story_like",
+                    target_user_pk=str(user_pk),
+                    target_username=str(username),
+                    media_pk=str_pk,
+                    success=True
+                )
+                rng = delay_range or self.story_delay_range
+                min_d, max_d = min(rng[0], rng[1]), max(rng[0], rng[1])
+                sleep_sec = randint(min_d, max_d)
+                log_sleep(sleep_sec, message=f"Resting after story like ({sleep_sec}s)")
+                return True
+            return False
+        except MediaNotFound:
+            log_warning(f"Story {story_pk} was deleted or expired.")
+            return False
+        except FeedbackRequired as fb:
+            log_error(f"Instagram Action Block / Feedback Required on story like: {fb}")
+            return False
+        except PleaseWaitFewMinutes:
+            log_warning("Rate limit hit: Instagram requested a cooldown on story like. Pausing...")
+            log_sleep(300, message="Instagram rate limit cooldown (5 mins)")
+            return False
+        except RateLimitError:
+            log_warning("Instagram RateLimitError encountered on story like. Pausing...")
+            log_sleep(180, message="Rate limit cooldown (3 mins)")
+            return False
+        except (LoginRequired, ClientLoginRequired):
+            log_error("Login session expired while liking story.")
+            return False
+        except Exception as e:
+            log_error(f"Cannot like story {story_pk}: ", str(e))
+            return False
+
+    def process_user_stories(self, user_pk: str, username: str = "", delay_range=None, like_stories: bool = True) -> tuple[int, int]:
+        """
+        Non-randomly processes ALL active stories for a user:
+        1. Views every story of the user (unless already marked seen in DB).
+        2. Likes every story of the user (if like_stories is True and not already liked in DB).
+        Returns (stories_seen_count, stories_liked_count).
+        """
+        stories = self.get_user_active_stories(user_pk)
+        if not stories:
+            return 0, 0
+
+        seen_count = 0
+        liked_count = 0
+        total_stories = len(stories)
+        log_print(f"Found [bold magenta]{total_stories}[/bold magenta] active stories for @[bold yellow]{username}[/bold yellow] :clapper:")
+
+        for s_idx, story in enumerate(stories, start=1):
+            story_pk = str(getattr(story, "pk", ""))
+            if not story_pk:
+                continue
+
+            # 1. View story
+            if not has_recent_interaction(story_pk, "story_seen"):
+                seen = self.seen_story(story_pk, username=username, user_pk=user_pk)
+                if seen:
+                    seen_count += 1
+                    # Natural story viewing dwell time (1 to 2 seconds)
+                    dwell = randint(1, 2)
+                    log_sleep(dwell, message=f"Watching story {s_idx}/{total_stories} ({dwell}s)")
+            else:
+                log_print(f"Story {story_pk} of @{username} was already viewed previously :eye:")
+
+            # 2. Like story (if requested and not already liked)
+            if like_stories:
+                if not has_recent_interaction(story_pk, "story_like"):
+                    liked = self.like_story(
+                        story_pk,
+                        delay_range=delay_range or self.story_delay_range,
+                        username=username,
+                        user_pk=user_pk
+                    )
+                    if liked:
+                        liked_count += 1
+                else:
+                    log_print(f"Story {story_pk} of @{username} is already liked :heart:")
+
+        if seen_count > 0 or liked_count > 0:
+            log_success(f"Completed stories for @[bold yellow]{username}[/bold yellow]: [bold cyan]{seen_count}[/bold cyan] viewed, [bold green]{liked_count}[/bold green] liked :sparkles:")
+
+        return seen_count, liked_count
+

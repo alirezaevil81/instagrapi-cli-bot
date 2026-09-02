@@ -41,7 +41,6 @@ from src.utils import (
     format_bilingual_prompt,
     ask_yes_no,
     ask_delay_range,
-    ask_api_delay_range,
     ask_choice_or_custom,
     register_graceful_shutdown,
     em
@@ -190,9 +189,6 @@ def main():
         custom_prompt_fa="تعداد پست‌های لایک دلخواه را وارد کنید",
         val_type=int
     )
-
-    # API Request Delay range (Presets + Custom)
-    cl.delay_range = ask_api_delay_range(default_range=[3, 7])
 
     # Execute warm-up if enabled
     if enable_warmup:
