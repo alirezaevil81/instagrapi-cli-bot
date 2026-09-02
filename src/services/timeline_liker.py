@@ -170,13 +170,13 @@ def main():
 
     # Story Interaction Toggle (Selectable Yes/No)
     story_interaction = ask_yes_no(
-        "Enable automated story viewing & liking for authors with active stories?",
-        "مشاهده و لایک خودکار تمام استوری‌های فعال منتشرکننده پست؟",
+        "Enable automated story viewing (all) & liking (last story) for authors with active stories?",
+        "مشاهده تمام استوری‌ها و لایک خودکار فقط استوری آخر منتشرکننده پست؟",
         default=True
     )
     if story_interaction:
-        log_print("Automated Story Viewing & Liking is [bold green]ENABLED (All Active Stories)[/bold green] :clapper: :heart:")
-        bot.story_delay_range = ask_delay_range("story interactions (تعامل با استوری)", default_range=[2, 5])
+        log_print("Automated Story Viewing & Liking Last Story is [bold green]ENABLED[/bold green] :clapper: :heart:")
+        bot.story_delay_range = ask_delay_range("last story like cooldown (تاخیر اصلی بعد از لایک استوری آخر)", default_range=[30, 60])
     else:
         log_print("Automated Story Interaction is [bold red]DISABLED[/bold red] :cross_mark:")
 

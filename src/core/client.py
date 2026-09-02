@@ -946,11 +946,12 @@ class Bot(Client):
             log_error(f"Cannot like story {story_pk}: ", str(e))
             return False
 
-    def process_user_stories(self, user_pk: str, username: str = "", delay_range=None, like_stories: bool = True) -> tuple[int, int]:
+    def process_user_stories(self, user_pk: str, username: str = "", delay_range=None, like_last_story: bool = True) -> tuple[int, int]:
         """
-        Non-randomly processes ALL active stories for a user:
-        1. Views every story of the user (unless already marked seen in DB).
-        2. Likes every story of the user (if like_stories is True and not already liked in DB).
+        Processes active stories for a user:
+        1. Views ALL active stories one by one with natural watching delay (1 to 5 seconds).
+        2. Likes ONLY the LAST active story (if like_last_story is True and not already liked in DB).
+        3. Enters the main cooldown delay (delay_range) after liking the last story.
         Returns (stories_seen_count, stories_liked_count).
         """
         stories = self.get_user_active_stories(user_pk)
@@ -962,27 +963,32 @@ class Bot(Client):
         total_stories = len(stories)
         log_print(f"Found [bold magenta]{total_stories}[/bold magenta] active stories for @[bold yellow]{username}[/bold yellow] :clapper:")
 
+        # 1. View all stories with natural viewing delay (1 to 5s)
         for s_idx, story in enumerate(stories, start=1):
             story_pk = str(getattr(story, "pk", ""))
             if not story_pk:
                 continue
 
-            # 1. View story
             if not has_recent_interaction(story_pk, "story_seen"):
                 seen = self.seen_story(story_pk, username=username, user_pk=user_pk)
                 if seen:
                     seen_count += 1
-                    # Natural story viewing dwell time (1 to 2 seconds)
-                    dwell = randint(1, 2)
-                    log_sleep(dwell, message=f"Watching story {s_idx}/{total_stories} ({dwell}s)")
             else:
                 log_print(f"Story {story_pk} of @{username} was already viewed previously :eye:")
 
-            # 2. Like story (if requested and not already liked)
-            if like_stories:
-                if not has_recent_interaction(story_pk, "story_like"):
+            # Dwell/Watching delay between each story (1 to 5 seconds)
+            dwell = randint(1, 5)
+            log_sleep(dwell, message=f"Watching story {s_idx}/{total_stories} ({dwell}s)")
+
+        # 2. Like ONLY the last active story and enter the main delay cooldown
+        if like_last_story and total_stories > 0:
+            last_story = stories[-1]
+            last_story_pk = str(getattr(last_story, "pk", ""))
+            if last_story_pk:
+                if not has_recent_interaction(last_story_pk, "story_like"):
+                    log_print(f"Liking last story ({last_story_pk}) for @[bold yellow]{username}[/bold yellow] :sparkles:")
                     liked = self.like_story(
-                        story_pk,
+                        last_story_pk,
                         delay_range=delay_range or self.story_delay_range,
                         username=username,
                         user_pk=user_pk
@@ -990,10 +996,10 @@ class Bot(Client):
                     if liked:
                         liked_count += 1
                 else:
-                    log_print(f"Story {story_pk} of @{username} is already liked :heart:")
+                    log_print(f"Last story {last_story_pk} of @{username} is already liked :heart:")
 
         if seen_count > 0 or liked_count > 0:
-            log_success(f"Completed stories for @[bold yellow]{username}[/bold yellow]: [bold cyan]{seen_count}[/bold cyan] viewed, [bold green]{liked_count}[/bold green] liked :sparkles:")
+            log_success(f"Completed stories for @[bold yellow]{username}[/bold yellow]: [bold cyan]{seen_count}[/bold cyan] viewed, [bold green]{liked_count}[/bold green] liked (last story) :sparkles:")
 
         return seen_count, liked_count
 
