@@ -161,13 +161,13 @@ def main():
                 user_pk = getattr(user, 'pk', str(user))
                 console.print(f"\n[bold cyan]─── [:bust_in_silhouette: User {i}/{len(following_list)}] ───[/bold cyan] @[bold green]{username}[/bold green] (ID: [yellow]{user_pk}[/yellow])")
 
-                # Process all active stories (Non-random: all active stories seen & liked)
+                # Process all active stories (View all stories & like last story)
                 if story_interaction and user_pk:
                     st_seen, st_liked = bot.process_user_stories(
                         user_pk=str(user_pk),
                         username=str(username),
                         delay_range=bot.story_delay_range,
-                        like_stories=True
+                        like_last_story=True
                     )
                     if st_liked > 0:
                         total_actions_all_time += st_liked

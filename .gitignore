@@ -214,6 +214,9 @@ storage/logs/*
 !storage/logs/.gitignore
 data/
 
+# User Comments configuration (Keep comments.example.txt tracked)
+comments.txt
+
 # Web Preview & Platform files
 index.html
 metadata.json

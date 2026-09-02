@@ -946,7 +946,7 @@ class Bot(Client):
             log_error(f"Cannot like story {story_pk}: ", str(e))
             return False
 
-    def process_user_stories(self, user_pk: str, username: str = "", delay_range=None, like_last_story: bool = True) -> tuple[int, int]:
+    def process_user_stories(self, user_pk: str, username: str = "", delay_range=None, like_last_story: bool = True, **kwargs) -> tuple[int, int]:
         """
         Processes active stories for a user:
         1. Views ALL active stories one by one with natural watching delay (1 to 5 seconds).
@@ -954,6 +954,8 @@ class Bot(Client):
         3. Enters the main cooldown delay (delay_range) after liking the last story.
         Returns (stories_seen_count, stories_liked_count).
         """
+        if "like_stories" in kwargs and kwargs["like_stories"] is not None:
+            like_last_story = kwargs["like_stories"]
         stories = self.get_user_active_stories(user_pk)
         if not stories:
             return 0, 0

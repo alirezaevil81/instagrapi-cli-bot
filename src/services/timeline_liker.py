@@ -249,13 +249,13 @@ def main():
 
                 console.print(f"\n[bold cyan]─── [:camera: Post {idx}/{len(unliked_posts)}] ───[/bold cyan] @[bold yellow]{author}[/bold yellow] ([green]:clock1: {rel_time}[/green]) | :id: PK: {pk}")
 
-                # Step 0: Process all active stories of author (View + Like non-randomly)
+                # Step 0: Process all active stories of author (View all + Like last story)
                 if story_interaction and author_pk:
                     st_seen, st_liked = bot.process_user_stories(
                         user_pk=str(author_pk),
                         username=str(author),
                         delay_range=bot.story_delay_range,
-                        like_stories=True
+                        like_last_story=True
                     )
                     round_stories_seen += st_seen
                     round_stories_liked += st_liked
