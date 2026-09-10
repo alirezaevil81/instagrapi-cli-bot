@@ -17,12 +17,13 @@ class SimpleUserObject:
 
 class SimpleCommentObject:
     """Comment representation with comment pk, media pk, author username, author pk, text, and like state."""
-    def __init__(self, pk: str, media_pk: str, author_username: str, author_pk: str = "", text: str = ""):
+    def __init__(self, pk: str, media_pk: str, author_username: str, author_pk: str = "", text: str = "", like_count: int = 0):
         self.pk = str(pk)
         self.media_pk = str(media_pk)
         self.author_username = str(author_username)
         self.author_pk = str(author_pk)
         self.text = str(text)
+        self.like_count = int(like_count or 0)
 
     def __repr__(self):
         return f"<Comment {self.pk} by @{self.author_username}>"

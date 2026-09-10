@@ -3,6 +3,7 @@ Core Bot Client implementation.
 Extends instagrapi.Client with 2FA, session management, organic warm-up, and safe actions.
 """
 import os
+import re
 from random import randint, choice
 from instagrapi import Client
 from src.core.exceptions import (
@@ -871,6 +872,64 @@ class Bot(Client):
             log_error(f"Cannot comment on post {media_id}: ", str(e))
             return False
 
+    def resolve_media_pk_and_id(self, post_input: str) -> tuple:
+        """
+        Safely resolves any format of Instagram post reference into (media_pk, media_id):
+        - Full URL: https://www.instagram.com/p/DGLFS8yxJLS/?utm_source=...&stkn=...
+        - Reel URL: https://www.instagram.com/reel/DGLFS8yxJLS/
+        - TV URL: https://www.instagram.com/tv/DGLFS8yxJLS/
+        - Shortcode: DGLFS8yxJLS
+        - Full Media ID: 3569970422080639698_336744573
+        - Raw integer / string PK: 3569970422080639698
+        """
+        raw = str(post_input).strip().strip("'\"")
+
+        # 1. If it has composite media_id format (pk_userpk, e.g. 3569970422080639698_336744573)
+        if "_" in raw:
+            parts = raw.split("_")
+            if parts[0].isdigit():
+                pk = int(parts[0])
+                return pk, raw
+
+        # 2. If it is pure digits
+        if raw.isdigit():
+            pk = int(raw)
+            media_id = self.media_id(pk) if hasattr(self, "media_id") else str(pk)
+            return pk, str(media_id)
+
+        # 3. Extract shortcode if URL or bare shortcode
+        code = None
+        url_match = re.search(r"(?:p|reel|reels|tv)/([A-Za-z0-9_-]+)", raw)
+        if url_match:
+            code = url_match.group(1)
+        elif not raw.startswith("http") and "/" not in raw and len(raw) <= 25:
+            code = raw
+
+        if code:
+            try:
+                if hasattr(self, "media_pk_from_code"):
+                    pk = self.media_pk_from_code(code)
+                else:
+                    alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+                    pk = 0
+                    for letter in code:
+                        pk = (pk * 64) + alphabet.index(letter)
+                media_id = self.media_id(pk) if hasattr(self, "media_id") else str(pk)
+                return int(pk), str(media_id)
+            except Exception:
+                pass
+
+        # 4. Fallback to standard instagrapi media_pk_from_url
+        try:
+            if hasattr(self, "media_pk_from_url"):
+                pk = self.media_pk_from_url(raw)
+                media_id = self.media_id(pk) if hasattr(self, "media_id") else str(pk)
+                return int(pk), str(media_id)
+        except Exception:
+            pass
+
+        return int(raw) if raw.isdigit() else 0, str(raw)
+
     def get_post_comments(self, media_id: str, amount: int = 0) -> list:
         """Fetches comments for a given post safely with exception handling."""
         try:
@@ -911,18 +970,28 @@ class Bot(Client):
         """Likes a comment with instagrapi exception handling, SQLite logging and customizable delay."""
         try:
             str_pk = str(comment_pk)
+            pk_arg = int(str_pk) if str_pk.isdigit() else str_pk
             liked_successfully = False
+
             if hasattr(self, "comment_like"):
                 try:
-                    res = self.comment_like(str_pk)
+                    res = self.comment_like(pk_arg)
                     liked_successfully = (res is not False)
                 except Exception:
-                    if hasattr(self, "media_comment_like"):
-                        res = self.media_comment_like(str_pk)
+                    try:
+                        res = self.comment_like(str_pk)
                         liked_successfully = (res is not False)
+                    except Exception:
+                        if hasattr(self, "media_comment_like"):
+                            res = self.media_comment_like(pk_arg)
+                            liked_successfully = (res is not False)
             elif hasattr(self, "media_comment_like"):
-                res = self.media_comment_like(str_pk)
-                liked_successfully = (res is not False)
+                try:
+                    res = self.media_comment_like(pk_arg)
+                    liked_successfully = (res is not False)
+                except Exception:
+                    res = self.media_comment_like(str_pk)
+                    liked_successfully = (res is not False)
 
             if liked_successfully:
                 author_tag = f" by @{username}" if username else ""

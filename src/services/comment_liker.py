@@ -19,6 +19,7 @@ from src.core.exceptions import (
 )
 from src.core.client import Bot
 from src.database import (
+    SimpleCommentObject,
     save_target_comments_queue,
     get_pending_target_comments,
     remove_comment_from_queue,
@@ -47,10 +48,21 @@ from src.utils import (
 )
 
 
-def extract_comments_from_posts(cl: Bot, posts: list, amount_per_post: int = 0, skip_own: bool = True) -> list:
+def extract_comments_from_posts(
+    cl: Bot,
+    posts: list,
+    amount_per_post: int = 0,
+    skip_own: bool = True,
+    only_zero_likes: bool = True
+) -> list:
     """
-    Extracts unliked comments from a list of post URLs or PKs.
-    Returns a list of unliked Comment objects.
+    Extracts comments from a list of post URLs or PKs.
+    Filters:
+      - Has 0 likes (if only_zero_likes is True)
+      - Not already liked by current account
+      - Not in interaction_history (SQLite)
+      - Skips own comments if skip_own is True
+    Returns a list of SimpleCommentObject.
     """
     unliked_comments = []
     seen_comment_pks = set()
@@ -65,12 +77,7 @@ def extract_comments_from_posts(cl: Bot, posts: list, amount_per_post: int = 0, 
 
         try:
             with console.status(f"[bold cyan]:mag: Resolving post URL & media ID...[/bold cyan]", spinner="dots"):
-                if post_str.startswith("http") or "instagram.com" in post_str:
-                    media_pk = cl.media_pk_from_url(post_str)
-                else:
-                    media_pk = post_str
-
-                media_id = cl.media_id(media_pk)
+                media_pk, media_id = cl.resolve_media_pk_and_id(post_str)
 
             with console.status(f"[bold cyan]:speech_balloon: Fetching comments for media ID {media_id}...[/bold cyan]", spinner="dots"):
                 comments = cl.get_post_comments(media_id, amount=amount_per_post)
@@ -89,12 +96,20 @@ def extract_comments_from_posts(cl: Bot, posts: list, amount_per_post: int = 0, 
                 user = getattr(comment, 'user', None)
                 author_pk = str(getattr(user, 'pk', '') if user else '')
                 author_uname = str(getattr(user, 'username', '') if user else '')
+                text = str(getattr(comment, 'text', ''))
+                
+                raw_likes = getattr(comment, 'like_count', getattr(comment, 'comment_like_count', 0))
+                like_count = int(raw_likes or 0)
 
-                # 1. Skip own comments if requested
+                # 1. Zero likes condition (if requested)
+                if only_zero_likes and like_count > 0:
+                    continue
+
+                # 2. Skip own comments if requested
                 if skip_own and self_pk and author_pk == self_pk:
                     continue
 
-                # 2. Check if already liked on Instagram or in SQLite interaction history
+                # 3. Check if already liked on Instagram or in SQLite interaction history
                 has_liked = getattr(comment, 'has_liked', False)
                 if has_liked:
                     continue
@@ -102,15 +117,20 @@ def extract_comments_from_posts(cl: Bot, posts: list, amount_per_post: int = 0, 
                 if has_recent_interaction(c_pk, "comment_like"):
                     continue
 
-                # Attach media_pk & author info to comment object
-                setattr(comment, 'media_pk', str(media_id))
-                setattr(comment, 'author_username', author_uname)
-                setattr(comment, 'author_pk', author_pk)
+                # Create lightweight SimpleCommentObject
+                comment_obj = SimpleCommentObject(
+                    pk=c_pk,
+                    media_pk=str(media_id),
+                    author_username=author_uname,
+                    author_pk=author_pk,
+                    text=text,
+                    like_count=like_count
+                )
 
-                unliked_comments.append(comment)
+                unliked_comments.append(comment_obj)
                 post_unliked += 1
 
-            log_success(f"Found [bold green]{post_unliked}[/bold green] unliked comments on post {media_id} :sparkles:")
+            log_success(f"Found [bold green]{post_unliked}[/bold green] matching comments (0 likes) on post {media_id} :sparkles:")
 
         except MediaNotFound:
             log_error(f"Post {post_str} not found or was removed.")
@@ -195,12 +215,18 @@ def main():
             default=True
         )
 
+        filter_zero_likes = ask_yes_no(
+            "Only extract comments with 0 likes (unliked by anyone)?",
+            default=True
+        )
+
         # Extract comments
         comments_queue = extract_comments_from_posts(
             cl=cl,
             posts=posts,
             amount_per_post=max_comments_per_post,
-            skip_own=skip_own_comments
+            skip_own=skip_own_comments,
+            only_zero_likes=filter_zero_likes
         )
 
         if not comments_queue:

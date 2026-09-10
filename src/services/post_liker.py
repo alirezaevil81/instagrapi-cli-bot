@@ -88,8 +88,7 @@ def main():
         with console.status("[bold cyan]:mag: Fetching likers from target posts...[/bold cyan]"):
             for post in posts:
                 try:
-                    pk = cl.media_pk_from_url(post)
-                    post_id = cl.media_id(pk)
+                    pk, post_id = cl.resolve_media_pk_and_id(post)
                     likers = cl.media_likers(post_id)
                 except MediaNotFound:
                     log_error(f"Post {post} not found or was removed.")
