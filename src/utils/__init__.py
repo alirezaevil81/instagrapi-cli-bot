@@ -17,7 +17,8 @@ from src.utils.console import (
     ask_yes_no,
     ask_delay_range,
     ask_api_delay_range,
-    ask_choice_or_custom
+    ask_choice_or_custom,
+    ask_int
 )
 from src.utils.logger import get_file_logger, clean_rich_markup
 from src.utils.signals import register_graceful_shutdown
@@ -42,6 +43,7 @@ __all__ = [
     "ask_delay_range",
     "ask_api_delay_range",
     "ask_choice_or_custom",
+    "ask_int",
     "get_file_logger",
     "clean_rich_markup",
     "register_graceful_shutdown"

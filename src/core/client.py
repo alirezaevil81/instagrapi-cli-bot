@@ -984,51 +984,79 @@ class Bot(Client):
             log_error(f"Cannot like story {story_pk}: ", str(e))
             return False
 
-    def process_user_stories(self, user_pk: str, username: str = "", delay_range=None, like_last_story: bool = True, **kwargs) -> tuple[int, int]:
+    def process_user_stories(
+        self, 
+        user_pk: str, 
+        username: str = "", 
+        delay_range=None, 
+        view_count: int = -1, 
+        like_count: int = 1, 
+        **kwargs
+    ) -> tuple[int, int]:
         """
         Processes active stories for a user:
-        1. Views ALL active stories one by one with natural watching delay (1 to 5 seconds).
-        2. Likes ONLY the LAST active story (if like_last_story is True and not already liked in DB).
-        3. Enters the main cooldown delay (delay_range) after liking the last story.
+        1. Views up to `view_count` recent stories (if -1, views all).
+        2. Likes up to `like_count` recent stories (if -1, likes all).
+        3. Enters the main cooldown delay (delay_range) after liking.
         Returns (stories_seen_count, stories_liked_count).
         """
         if "like_stories" in kwargs and kwargs["like_stories"] is not None:
-            like_last_story = kwargs["like_stories"]
-        stories = self.get_user_active_stories(user_pk)
+            like_count = 1 if kwargs["like_stories"] else 0
+
+        with console.status(f"[bold cyan]Fetching stories for @{username}...[/bold cyan]", spinner="dots"):
+            stories = self.get_user_active_stories(user_pk)
+
         if not stories:
             return 0, 0
 
         seen_count = 0
         liked_count = 0
         total_stories = len(stories)
-        log_print(f"Found [bold magenta]{total_stories}[/bold magenta] active stories for @[bold yellow]{username}[/bold yellow] :clapper:")
+        
+        # Decide which to view
+        if view_count != -1 and view_count < total_stories:
+            view_stories = stories[-view_count:] if view_count > 0 else []
+        else:
+            view_stories = stories
+            
+        # Decide which to like
+        if like_count != -1 and like_count < total_stories:
+            like_stories = stories[-like_count:] if like_count > 0 else []
+        else:
+            like_stories = stories
 
-        # 1. View all stories with natural viewing delay (1 to 5s)
-        for s_idx, story in enumerate(stories, start=1):
-            story_pk = str(getattr(story, "pk", ""))
-            if not story_pk:
-                continue
+        log_print(f"Found [bold magenta]{total_stories}[/bold magenta] active stories for @[bold yellow]{username}[/bold yellow] (Viewing {len(view_stories)}, Liking {len(like_stories)}) :clapper:")
 
-            if not has_recent_interaction(story_pk, "story_seen"):
-                seen = self.seen_story(story_pk, username=username, user_pk=user_pk)
-                if seen:
-                    seen_count += 1
-            else:
-                log_print(f"Story {story_pk} of @{username} was already viewed previously :eye:")
+        # 1. View stories
+        if view_stories:
+            with console.status(f"[bold cyan]Viewing stories for @{username}...[/bold cyan]", spinner="bouncingBar"):
+                for s_idx, story in enumerate(view_stories, start=1):
+                    story_pk = str(getattr(story, "pk", ""))
+                    if not story_pk:
+                        continue
 
-            # Dwell/Watching delay between each story (1 to 5 seconds)
-            dwell = randint(1, 5)
-            log_sleep(dwell, message=f"Watching story {s_idx}/{total_stories} ({dwell}s)")
+                    if not has_recent_interaction(story_pk, "story_seen"):
+                        seen = self.seen_story(story_pk, username=username, user_pk=user_pk)
+                        if seen:
+                            seen_count += 1
+                    else:
+                        log_print(f"Story {story_pk} of @{username} was already viewed previously :eye:")
 
-        # 2. Like ONLY the last active story and enter the main delay cooldown
-        if like_last_story and total_stories > 0:
-            last_story = stories[-1]
-            last_story_pk = str(getattr(last_story, "pk", ""))
-            if last_story_pk:
-                if not has_recent_interaction(last_story_pk, "story_like"):
-                    log_print(f"Liking last story ({last_story_pk}) for @[bold yellow]{username}[/bold yellow] :sparkles:")
+                    # Dwell/Watching delay between each story (1 to 5 seconds)
+                    dwell = randint(1, 5)
+                    log_sleep(dwell, message=f"Watching story {s_idx}/{len(view_stories)} ({dwell}s)")
+
+        # 2. Like stories
+        if like_stories:
+            for s_idx, story in enumerate(like_stories, start=1):
+                story_pk = str(getattr(story, "pk", ""))
+                if not story_pk:
+                    continue
+
+                if not has_recent_interaction(story_pk, "story_like"):
+                    log_print(f"Liking story ({story_pk}) for @[bold yellow]{username}[/bold yellow] :sparkles:")
                     liked = self.like_story(
-                        last_story_pk,
+                        story_pk,
                         delay_range=delay_range or self.story_delay_range,
                         username=username,
                         user_pk=user_pk
@@ -1036,10 +1064,10 @@ class Bot(Client):
                     if liked:
                         liked_count += 1
                 else:
-                    log_print(f"Last story {last_story_pk} of @{username} is already liked :heart:")
+                    log_print(f"Story {story_pk} of @{username} is already liked :heart:")
 
         if seen_count > 0 or liked_count > 0:
-            log_success(f"Completed stories for @[bold yellow]{username}[/bold yellow]: [bold cyan]{seen_count}[/bold cyan] viewed, [bold green]{liked_count}[/bold green] liked (last story) :sparkles:")
+            log_success(f"Completed stories for @[bold yellow]{username}[/bold yellow]: [bold cyan]{seen_count}[/bold cyan] viewed, [bold green]{liked_count}[/bold green] liked :sparkles:")
 
         return seen_count, liked_count
 

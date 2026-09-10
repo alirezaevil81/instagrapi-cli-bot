@@ -89,16 +89,20 @@ def main():
     else:
         log_print("Automated commenting is [bold red]DISABLED[/bold red] :cross_mark:")
 
-    # Story Interaction Toggle (Selectable Yes/No)
+    # Story Interaction
     story_interaction = ask_yes_no(
-        "Enable automated story viewing (all) & liking (last story) for followings with active stories?",
+        "Enable automated story viewing & liking for followings with active stories?",
         default=True
     )
     if story_interaction:
-        log_print("Automated Story Viewing & Liking Last Story is [bold green]ENABLED[/bold green] :clapper: :heart:")
-        bot.story_delay_range = ask_delay_range("last story like cooldown", default_range=[30, 60])
+        log_print("Automated Story Viewing & Liking is [bold green]ENABLED[/bold green] :clapper: :heart:")
+        bot.story_view_count = ask_int("How many recent stories do you want to VIEW? (-1 for all, 0 for none)", default=-1, min_val=-1)
+        bot.story_like_count = ask_int("How many recent stories do you want to LIKE? (-1 for all, 0 for none, 1 for last)", default=1, min_val=-1)
+        bot.story_delay_range = ask_delay_range("story like cooldown", default_range=[30, 60])
     else:
         log_print("Automated Story Interaction is [bold red]DISABLED[/bold red] :cross_mark:")
+        bot.story_view_count = 0
+        bot.story_like_count = 0
 
     # Sleep after user with actions (Presets + Custom)
     sleep_iter_min = ask_choice_or_custom(
@@ -151,13 +155,14 @@ def main():
                 user_pk = getattr(user, 'pk', str(user))
                 console.print(f"\n[bold cyan]─── [:bust_in_silhouette: User {i}/{len(following_list)}] ───[/bold cyan] @[bold green]{username}[/bold green] (ID: [yellow]{user_pk}[/yellow])")
 
-                # Process all active stories (View all stories & like last story)
+                # Process active stories
                 if story_interaction and user_pk:
                     st_seen, st_liked = bot.process_user_stories(
                         user_pk=str(user_pk),
                         username=str(username),
                         delay_range=bot.story_delay_range,
-                        like_last_story=True
+                        view_count=bot.story_view_count,
+                        like_count=bot.story_like_count
                     )
                     if st_liked > 0:
                         total_actions_all_time += st_liked

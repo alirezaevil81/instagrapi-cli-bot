@@ -161,16 +161,20 @@ def main():
             log_print(f"Automated commenting is [bold green]ENABLED[/bold green] ({len(current_comments)} comments loaded from [bold yellow]{COMMENTS_FILE_PATH}[/bold yellow]) :white_check_mark:")
         bot.comment_delay_range = ask_delay_range("comments", default_range=[60, 90])
 
-    # Story Interaction Toggle (Selectable Yes/No)
+    # Story Interaction
     story_interaction = ask_yes_no(
-        "Enable automated story viewing (all) & liking (last story) for authors with active stories?",
+        "Enable automated story viewing & liking for authors with active stories?",
         default=True
     )
     if story_interaction:
-        log_print("Automated Story Viewing & Liking Last Story is [bold green]ENABLED[/bold green] :clapper: :heart:")
-        bot.story_delay_range = ask_delay_range("last story like cooldown", default_range=[30, 60])
+        log_print("Automated Story Viewing & Liking is [bold green]ENABLED[/bold green] :clapper: :heart:")
+        bot.story_view_count = ask_int("How many recent stories do you want to VIEW? (-1 for all, 0 for none)", default=-1, min_val=-1)
+        bot.story_like_count = ask_int("How many recent stories do you want to LIKE? (-1 for all, 0 for none, 1 for last)", default=1, min_val=-1)
+        bot.story_delay_range = ask_delay_range("story like cooldown", default_range=[30, 60])
     else:
         log_print("Automated Story Interaction is [bold red]DISABLED[/bold red] :cross_mark:")
+        bot.story_view_count = 0
+        bot.story_like_count = 0
 
     # Execute warm-up if enabled
     if enable_warmup:
@@ -241,13 +245,14 @@ def main():
 
                 console.print(f"\n[bold cyan]─── [:camera: Post {idx}/{len(unliked_posts)}] ───[/bold cyan] @[bold yellow]{author}[/bold yellow] ([green]:clock1: {rel_time}[/green]) | :id: PK: {pk}")
 
-                # Step 0: Process all active stories of author (View all + Like last story)
+                # Step 0: Process active stories of author
                 if story_interaction and author_pk:
                     st_seen, st_liked = bot.process_user_stories(
                         user_pk=str(author_pk),
                         username=str(author),
                         delay_range=bot.story_delay_range,
-                        like_last_story=True
+                        view_count=bot.story_view_count,
+                        like_count=bot.story_like_count
                     )
                     round_stories_seen += st_seen
                     round_stories_liked += st_liked

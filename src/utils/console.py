@@ -24,65 +24,15 @@ from src.utils.logger import get_file_logger, clean_rich_markup
 # Install beautiful rich tracebacks globally
 install_rich_traceback(show_locals=True, width=100)
 
-_EMOJI_FALLBACKS = {
-    ":zap:": "⚡",
-    ":shield:": "🛡️",
-    ":newspaper:": "📰",
-    ":bust_in_silhouette:": "👤",
-    ":busts_in_silhouette:": "👥",
-    ":target:": "🎯",
-    ":door:": "🚪",
-    ":gear:": "⚙️",
-    ":white_check_mark:": "✅",
-    ":x:": "❌",
-    ":cross_mark:": "❌",
-    ":warning:": "⚠️",
-    ":hourglass:": "⏳",
-    ":sleeping:": "😴",
-    ":zzz:": "💤",
-    ":coffee:": "☕",
-    ":stop_sign:": "🛑",
-    ":wave:": "👋",
-    ":camera:": "📷",
-    ":heart:": "❤️",
-    ":speech_balloon:": "💬",
-    ":floppy_disk:": "💾",
-    ":star:": "⭐",
-    ":mag:": "🔍",
-    ":bar_chart:": "📊",
-    ":tada:": "🎉",
-    ":rocket:": "🚀",
-    ":key:": "🔑",
-    ":heavy_plus_sign:": "➕",
-    ":arrow_right:": "➡️",
-    ":fast_forward:": "⏩",
-    ":memo:": "📝",
-    ":pushpin:": "📌",
-    ":chart_with_upwards_trend:": "📈",
-    ":robot:": "🤖",
-    ":sparkles:": "✨",
-    ":repeat:": "🔄",
-    ":clipboard:": "📋",
-    ":hash:": "#️⃣",
-    ":id:": "🆔",
-    ":name_badge:": "📛",
-    ":lock:": "🔒",
-    ":globe_with_meridians:": "🌐",
-    ":clock1:": "🕒",
-    ":smiley:": "😃",
-    ":thumbs_up:": "👍",
-    ":heart_eyes:": "😍",
-    ":ok_hand:": "👌",
-    ":star_struck:": "🤩",
-    ":kissing_heart:": "😘",
-    ":sparkling_heart:": "💖",
-    ":smiling_face_with_3_hearts:": "🥰",
-    ":sunglasses:": "😎",
-    ":fire:": "🔥",
-    ":clapping_hands:": "👏",
-    ":rainbow:": "🌈",
-    ":dizzy:": "💫"
-}
+import json
+
+_EMOJI_FALLBACKS = {}
+_emoji_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "emojis.json")
+try:
+    with open(_emoji_file, "r", encoding="utf-8") as _f:
+        _EMOJI_FALLBACKS = json.load(_f)
+except Exception:
+    pass
 
 def em(text: str) -> str:
     """
@@ -300,7 +250,7 @@ def show_system_dashboard():
     from rich.columns import Columns
     from rich.table import Table
     import platform
-    from src.config import DATABASE_PATH, SESSIONS_DIR
+    from src.config import DB_PATH, SESSIONS_DIR
 
     # 1. System Info Panel
     sys_table = Table(box=None, padding=(0, 1), show_header=False)
@@ -310,8 +260,8 @@ def show_system_dashboard():
 
     # 2. Storage & DB Info Panel
     db_size = "0 KB"
-    if os.path.exists(DATABASE_PATH):
-        db_size = f"{os.path.getsize(DATABASE_PATH) / 1024:.1f} KB"
+    if os.path.exists(DB_PATH):
+        db_size = f"{os.path.getsize(DB_PATH) / 1024:.1f} KB"
         
     sessions_count = len([name for name in os.listdir(SESSIONS_DIR) if os.path.isfile(os.path.join(SESSIONS_DIR, name))]) if os.path.exists(SESSIONS_DIR) else 0
 
@@ -528,3 +478,21 @@ def show_user_table(users: list, title: str = "Target Users"):
     console.print(table)
 
 
+
+def ask_int(english_question: str, default: int = 1, min_val: int = -1) -> int:
+    import questionary
+    while True:
+        val = questionary.text(f"{english_question} (default: {default})").ask()
+        if val is None:
+            return default
+        val = val.strip()
+        if not val:
+            return default
+        try:
+            val_int = int(val)
+            if val_int < min_val:
+                print(f"Please enter a number >= {min_val}")
+                continue
+            return val_int
+        except ValueError:
+            print("Please enter a valid integer.")
