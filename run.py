@@ -7,6 +7,7 @@ Usage:
     python run.py timeline          # Direct launch: Timeline Feed Liker
     python run.py followers         # Direct launch: Following Feed Liker
     python run.py posts             # Direct launch: Post Likers Bot
+    python run.py comments          # Direct launch: Post Comments Liker Bot
 """
 import os
 import sys

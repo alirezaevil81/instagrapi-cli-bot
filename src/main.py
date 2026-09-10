@@ -11,6 +11,7 @@ from src.utils.signals import register_graceful_shutdown
 from src.services.followers_liker import main as run_followers_bot
 from src.services.post_liker import main as run_post_likers_bot
 from src.services.timeline_liker import main as run_timeline_bot
+from src.services.comment_liker import main as run_comment_likers_bot
 
 def main():
     """Interactive CLI menu to select and launch bots."""
@@ -27,6 +28,9 @@ def main():
             return
         elif arg in ["posts", "post_likers", "likers", "3"]:
             run_post_likers_bot()
+            return
+        elif arg in ["comments", "comment_liker", "comment_likers", "4"]:
+            run_comment_likers_bot()
             return
 
     show_banner("Instagram Bot Hub", "Select bot mode to run & automate your Instagram actions")
@@ -62,7 +66,11 @@ Choose a module below to get started!
                 value="posts"
             ),
             questionary.Choice(
-                title=em(":door: 4. Exit"),
+                title=em(":speech_balloon: 4. Post Comments Liker (Extract & Like Unliked Comments in Order)"),
+                value="comments"
+            ),
+            questionary.Choice(
+                title=em(":door: 5. Exit"),
                 value="exit"
             ),
         ]
@@ -74,6 +82,8 @@ Choose a module below to get started!
         run_followers_bot()
     elif choice == "posts":
         run_post_likers_bot()
+    elif choice == "comments":
+        run_comment_likers_bot()
     else:
         console.print(em("\n[bold yellow]:wave: Exited successfully. Goodbye![/bold yellow]\n"))
 

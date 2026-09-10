@@ -15,6 +15,7 @@ instabot = "src.main:main"
 timeline-bot = "src.services.timeline_liker:main"
 followers-bot = "src.services.followers_liker:main"
 post-likers-bot = "src.services.post_liker:main"
+comments-bot = "src.services.comment_liker:main"
 
 [build-system]
 requires = ["hatchling"]

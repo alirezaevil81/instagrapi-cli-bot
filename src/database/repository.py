@@ -15,6 +15,18 @@ class SimpleUserObject:
     def __repr__(self):
         return f"<User @{self.username} (PK: {self.pk})>"
 
+class SimpleCommentObject:
+    """Comment representation with comment pk, media pk, author username, author pk, text, and like state."""
+    def __init__(self, pk: str, media_pk: str, author_username: str, author_pk: str = "", text: str = ""):
+        self.pk = str(pk)
+        self.media_pk = str(media_pk)
+        self.author_username = str(author_username)
+        self.author_pk = str(author_pk)
+        self.text = str(text)
+
+    def __repr__(self):
+        return f"<Comment {self.pk} by @{self.author_username}>"
+
 def save_target_users_queue(users: List[Any], clear_existing: bool = True) -> int:
     """
     Saves a list of target users into the SQLite database.
@@ -84,6 +96,81 @@ def get_queue_count() -> int:
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM target_users_queue WHERE status = 'pending'")
+        row = cursor.fetchone()
+        return row[0] if row else 0
+
+def save_target_comments_queue(comments: List[Any], clear_existing: bool = True) -> int:
+    """
+    Saves a list of target comments into the SQLite database.
+    """
+    init_db()
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        if clear_existing:
+            cursor.execute("DELETE FROM target_comments_queue WHERE status = 'pending'")
+
+        count = 0
+        for c in comments:
+            pk = str(getattr(c, 'pk', c))
+            media_pk = str(getattr(c, 'media_pk', ''))
+            user = getattr(c, 'user', None)
+            author_username = str(getattr(user, 'username', '') if user else getattr(c, 'author_username', ''))
+            author_pk = str(getattr(user, 'pk', '') if user else getattr(c, 'author_pk', ''))
+            text = str(getattr(c, 'text', ''))
+
+            cursor.execute("""
+                INSERT OR REPLACE INTO target_comments_queue (pk, media_pk, author_username, author_pk, text, status, added_at)
+                VALUES (?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP)
+            """, (pk, media_pk, author_username, author_pk, text))
+            count += 1
+
+        conn.commit()
+        return count
+
+def get_pending_target_comments() -> List[SimpleCommentObject]:
+    """
+    Retrieves all pending comments from the target queue.
+    """
+    init_db()
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT pk, media_pk, author_username, author_pk, text FROM target_comments_queue WHERE status = 'pending' ORDER BY added_at ASC")
+        rows = cursor.fetchall()
+        return [
+            SimpleCommentObject(
+                pk=row['pk'],
+                media_pk=row['media_pk'],
+                author_username=row['author_username'],
+                author_pk=row['author_pk'],
+                text=row['text']
+            ) for row in rows
+        ]
+
+def remove_comment_from_queue(pk: str) -> bool:
+    """
+    Removes a comment from the active queue.
+    """
+    init_db()
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM target_comments_queue WHERE pk = ?", (str(pk),))
+        conn.commit()
+        return cursor.rowcount > 0
+
+def clear_comment_queue() -> None:
+    """Clears all records in target_comments_queue."""
+    init_db()
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM target_comments_queue")
+        conn.commit()
+
+def get_comment_queue_count() -> int:
+    """Returns number of pending target comments."""
+    init_db()
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM target_comments_queue WHERE status = 'pending'")
         row = cursor.fetchone()
         return row[0] if row else 0
 

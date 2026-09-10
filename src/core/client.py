@@ -871,6 +871,98 @@ class Bot(Client):
             log_error(f"Cannot comment on post {media_id}: ", str(e))
             return False
 
+    def get_post_comments(self, media_id: str, amount: int = 0) -> list:
+        """Fetches comments for a given post safely with exception handling."""
+        try:
+            str_id = str(media_id).strip()
+            comments = self.media_comments(str_id, amount=amount) or []
+            return comments
+        except MediaNotFound:
+            log_warning(f"Post {media_id} was deleted or not found.")
+            return []
+        except PrivateAccount:
+            log_warning(f"Post {media_id} belongs to a private account.")
+            return []
+        except FeedbackRequired as fb:
+            log_error(f"Instagram Feedback Required when fetching comments: {fb}")
+            return []
+        except PleaseWaitFewMinutes:
+            log_warning("Instagram rate limit hit while fetching comments.")
+            return []
+        except RateLimitError:
+            log_warning("Instagram RateLimitError while fetching comments.")
+            return []
+        except (LoginRequired, ClientLoginRequired):
+            log_error("Login session expired while fetching comments.")
+            return []
+        except Exception as e:
+            log_warning(f"Could not retrieve comments for post {media_id}: {e}")
+            return []
+
+    def like_comment(
+        self,
+        comment_pk: str,
+        delay_range=None,
+        username: str = "",
+        user_pk: str = "",
+        media_pk: str = "",
+        comment_text: str = ""
+    ) -> bool:
+        """Likes a comment with instagrapi exception handling, SQLite logging and customizable delay."""
+        try:
+            str_pk = str(comment_pk)
+            liked_successfully = False
+            if hasattr(self, "comment_like"):
+                try:
+                    res = self.comment_like(str_pk)
+                    liked_successfully = (res is not False)
+                except Exception:
+                    if hasattr(self, "media_comment_like"):
+                        res = self.media_comment_like(str_pk)
+                        liked_successfully = (res is not False)
+            elif hasattr(self, "media_comment_like"):
+                res = self.media_comment_like(str_pk)
+                liked_successfully = (res is not False)
+
+            if liked_successfully:
+                author_tag = f" by @{username}" if username else ""
+                log_success(f"Liked comment {str_pk}{author_tag} :heart:")
+                record_interaction(
+                    account_username=getattr(self, "username", "self"),
+                    action_type="comment_like",
+                    target_user_pk=str(user_pk),
+                    target_username=str(username),
+                    media_pk=str_pk,
+                    comment_text=str(comment_text),
+                    success=True
+                )
+                rng = delay_range or [20, 45]
+                min_d, max_d = min(rng[0], rng[1]), max(rng[0], rng[1])
+                sleep_sec = randint(min_d, max_d)
+                log_sleep(sleep_sec, message=f"Resting after comment like ({sleep_sec}s)")
+                return True
+            return False
+        except MediaNotFound:
+            log_warning(f"Comment {comment_pk} or its post was deleted or expired.")
+            return False
+        except FeedbackRequired as fb:
+            log_error(f"Instagram Action Block / Feedback Required on comment like: {fb}")
+            return False
+        except PleaseWaitFewMinutes:
+            log_warning("Rate limit hit: Instagram requested a cooldown on comment like. Pausing...")
+            log_sleep(300, message="Instagram rate limit cooldown (5 mins)")
+            return False
+        except RateLimitError:
+            log_warning("Instagram RateLimitError on comment like. Pausing...")
+            log_sleep(180, message="Rate limit cooldown (3 mins)")
+            return False
+        except (LoginRequired, ClientLoginRequired):
+            log_error("Login session expired while liking comment.")
+            return False
+        except Exception as e:
+            log_error(f"Cannot like comment {comment_pk}: ", str(e))
+            return False
+
     def get_user_active_stories(self, user_pk: str) -> list:
         """Fetches active stories for a given user_pk safely."""
         try:

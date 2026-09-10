@@ -29,6 +29,19 @@ def init_db():
             )
         """)
 
+        # Table for target comments queue
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS target_comments_queue (
+                pk TEXT PRIMARY KEY,
+                media_pk TEXT NOT NULL,
+                author_username TEXT NOT NULL,
+                author_pk TEXT DEFAULT '',
+                text TEXT DEFAULT '',
+                status TEXT DEFAULT 'pending',
+                added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
         # Table for interaction history and audit logging
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS interaction_history (
