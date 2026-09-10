@@ -212,14 +212,22 @@ storage/database/*
 !storage/database/.gitignore
 storage/logs/*
 !storage/logs/.gitignore
+storage/*.db
+storage/*.log
+*.db
+*.log
 data/
 
-# User Comments configuration (Keep comments.example.txt tracked)
+# User Comments configuration (Keep example templates tracked, ignore user comments)
+comments.json
 comments.txt
+!comments.example.json
 
-# Web Preview & Platform files
+# Web Preview, Platform & Package Manager files
 index.html
 metadata.json
 package.json
+package-lock.json
 server.js
 uv.lock
+node_modules/

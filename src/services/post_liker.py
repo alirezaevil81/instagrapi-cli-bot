@@ -37,7 +37,6 @@ from src.utils import (
     log_error,
     log_warning,
     log_sleep,
-    fix_persian,
     format_bilingual_prompt,
     ask_yes_no,
     ask_delay_range,
@@ -66,7 +65,6 @@ def main():
     if pending_count > 0:
         use_saved_db = ask_yes_no(
             f"Found {pending_count} pending target users in SQLite database. Do you want to resume?",
-            f"تعداد {pending_count} کاربر در صف دیتابیس وجود دارد. آیا مایل به ادامه عملیات قبلی هستید؟",
             default=True
         )
         start_via_saved_queue = bool(use_saved_db)
@@ -76,10 +74,7 @@ def main():
         log_success(f"Loaded [bold cyan]{len(users)}[/bold cyan] target users from SQLite database queue.")
     else:
         posts_raw = questionary.text(
-            format_bilingual_prompt(
-                "Enter target post URLs (separated by comma)",
-                "لینک پست‌های هدف اینستاگرام را وارد کنید (با کاما جدا کنید)"
-            ),
+            "Enter target post URLs (separated by comma):",
             validate=lambda val: True if len(val.strip()) > 0 else "Please provide at least one post URL"
         ).ask()
 
@@ -162,31 +157,28 @@ def main():
         sys.exit(0)
 
     # ----------- Interactive Configuration (Questionary) --------------
-    console.print(f"\n[bold cyan]:gear: Configure Bot Parameters[/bold cyan]\n  [dim]↪ {fix_persian('تنظیم پارامترهای اجرایی و تاخیرها')}[/dim]")
+    console.print("\n[bold cyan]:gear: Configure Bot Parameters[/bold cyan]")
 
     # Warm-up option (Selectable Yes/No)
     enable_warmup = ask_yes_no(
         "Perform natural account warm-up actions before starting?",
-        "انجام آماده‌سازی و رفتار ارگانیک قبل از شروع ربات؟",
         default=True
     )
 
     # Like delay configuration with presets
-    like_delay_range = ask_delay_range("likes (لایک‌ها)", default_range=[60, 90])
+    like_delay_range = ask_delay_range("likes", default_range=[60, 90])
 
     # Posts to check per target user (Presets + Custom)
     posts_amount = ask_choice_or_custom(
         english_title="Select number of recent posts to like per target user",
-        persian_title="تعداد پست‌های لایک‌شده برای هر کاربر هدف",
         options=[
-            (1, "1 post", "سریع و سبک", ":zap:"),
-            (3, "3 posts", "پیشنهادی و استاندارد", ":shield:"),
-            (5, "5 posts", "عمیق‌تر", ":mag:"),
-            (8, "8 posts", "لایک حداکثری", ":star:"),
+            (1, "1 post", "Fast & Light", ":zap:"),
+            (3, "3 posts", "Recommended & Standard", ":shield:"),
+            (5, "5 posts", "Deeper Engagement", ":mag:"),
+            (8, "8 posts", "Maximum Likes", ":star:"),
         ],
         default_val=3,
         custom_prompt_en="Enter custom number of posts to like per user",
-        custom_prompt_fa="تعداد پست‌های لایک دلخواه را وارد کنید",
         val_type=int
     )
 

@@ -10,6 +10,8 @@ from rich.rule import Rule
 from rich.columns import Columns
 from rich import box
 from rich.emoji import Emoji
+from rich.align import Align
+from rich.traceback import install as install_rich_traceback
 from rich.progress import (
     Progress,
     SpinnerColumn,
@@ -17,9 +19,10 @@ from rich.progress import (
     BarColumn,
     TimeRemainingColumn
 )
-import arabic_reshaper
-from bidi.algorithm import get_display
 from src.utils.logger import get_file_logger, clean_rich_markup
+
+# Install beautiful rich tracebacks globally
+install_rich_traceback(show_locals=True, width=100)
 
 _EMOJI_FALLBACKS = {
     ":zap:": "⚡",
@@ -115,50 +118,22 @@ if sys.platform == "win32":
 # Initialize Rich Console
 console = Console(log_time=True, log_path=True, log_time_format="%Y-%m-%d %H:%M:%S", legacy_windows=False)
 
-# Configure Persian-specific character joining and ligatures
-_reshaper_config = {
-    'delete_harakat': False,
-    'support_ligatures': True,
-    'language': 'Persian'
-}
-_persian_reshaper = arabic_reshaper.ArabicReshaper(configuration=_reshaper_config)
-
 def fix_persian(text: str) -> str:
-    """
-    Reshapes and applies BiDi algorithm to Persian/Arabic text for correct terminal rendering.
-    """
-    if not text or not isinstance(text, str):
-        return text
-    has_persian = any('\u0600' <= char <= '\u06FF' or '\uFB50' <= char <= '\uFDFF' or '\uFE70' <= char <= '\uFEFF' for char in text)
-    if not has_persian:
-        return text
+    """Pass-through string helper maintained for backward compatibility."""
+    return text if isinstance(text, str) else str(text)
 
-    try:
-        reshaped = _persian_reshaper.reshape(text)
-        return get_display(reshaped)
-    except Exception:
-        try:
-            reshaped = arabic_reshaper.reshape(text)
-            return get_display(reshaped)
-        except Exception:
-            return text
+def format_bilingual_prompt(english: str, persian: str = "") -> str:
+    """Formats an interactive CLI prompt."""
+    return f"{english}:"
 
-def format_bilingual_prompt(english: str, persian: str) -> str:
+def ask_yes_no(english_question: str, persian_question: str = "", default: bool = True) -> bool:
     """
-    Formats a prompt with English on the first line and Persian cleanly on the second line.
-    This prevents terminal text-shuffling and BiDi mixing issues.
-    """
-    fixed_fa = fix_persian(persian)
-    return f"{english}\n  ↪ {fixed_fa}:"
-
-def ask_yes_no(english_question: str, persian_question: str, default: bool = True) -> bool:
-    """
-    Displays an interactive selection menu with Yes / No options instead of single-character inputs.
+    Displays an interactive selection menu with Yes / No options.
     """
     import questionary
-    prompt_text = em(f"{english_question}\n  ↪ {fix_persian(persian_question)}")
-    yes_choice = questionary.Choice(title=em(f":white_check_mark: Yes ({fix_persian('بله')})"), value=True)
-    no_choice = questionary.Choice(title=em(f":x: No ({fix_persian('خیر')})"), value=False)
+    prompt_text = em(english_question)
+    yes_choice = questionary.Choice(title=em(":white_check_mark: Yes"), value=True)
+    no_choice = questionary.Choice(title=em(":x: No"), value=False)
     choices = [yes_choice, no_choice]
 
     choice = questionary.select(
@@ -170,32 +145,36 @@ def ask_yes_no(english_question: str, persian_question: str, default: bool = Tru
 
 def ask_choice_or_custom(
     english_title: str,
-    persian_title: str,
-    options: list,  # list of tuples: (value, title_en, title_fa, icon)
+    persian_title: str = "",
+    options: list = None,
     default_val: any = None,
     custom_prompt_en: str = "Enter custom value",
-    custom_prompt_fa: str = "مقدار دلخواه را وارد کنید",
+    custom_prompt_fa: str = "",
     val_type: type = int
 ):
     """
     Shows an interactive list of preset choices with a 'Custom...' option.
     """
     import questionary
-    prompt_text = em(f"{english_title}\n  ↪ {fix_persian(persian_title)}:")
+    prompt_text = em(f"{english_title}:")
     
     choices = []
     default_choice = None
     
-    for opt in options:
-        val, title_en, title_fa, icon = opt
-        label = em(f"{icon} {title_en} ({fix_persian(title_fa)})")
-        c = questionary.Choice(title=label, value=val)
-        choices.append(c)
-        if default_val is not None and val == default_val:
-            default_choice = c
+    if options:
+        for opt in options:
+            val = opt[0]
+            title_en = opt[1]
+            desc_en = opt[2] if len(opt) > 2 else ""
+            icon = opt[3] if len(opt) > 3 else ":point_right:"
+            label = em(f"{icon} {title_en} - {desc_en}" if desc_en else f"{icon} {title_en}")
+            c = questionary.Choice(title=label, value=val)
+            choices.append(c)
+            if default_val is not None and val == default_val:
+                default_choice = c
             
     custom_choice = questionary.Choice(
-        title=em(f":gear: Custom... ({fix_persian('تنظیم دلخواه و دستی')})"),
+        title=em(":gear: Custom... (Manual configuration)"),
         value="__custom__"
     )
     choices.append(custom_choice)
@@ -210,7 +189,7 @@ def ask_choice_or_custom(
     ).ask()
     
     if selected == "__custom__":
-        cust_prompt = format_bilingual_prompt(custom_prompt_en, custom_prompt_fa)
+        cust_prompt = f"{custom_prompt_en}:"
         val_str = questionary.text(
             em(cust_prompt),
             default=str(default_val if default_val is not None else "1"),
@@ -236,15 +215,12 @@ def ask_api_delay_range(default_range: list = None) -> list:
     if not default_range or len(default_range) != 2:
         default_range = [3, 7]
 
-    prompt_text = em(
-        f"Select base Instagram API request delay range (seconds):\n"
-        f"  ↪ {fix_persian('انتخاب بازه تاخیر پایه ریکوئست‌های اینستاگرام به ثانیه')}:"
-    )
+    prompt_text = em("Select base Instagram API request delay range (seconds):")
 
-    c_fast = questionary.Choice(title=em(f":zap: 2 - 5 seconds ({fix_persian('سریع')})"), value="2_5")
-    c_safe = questionary.Choice(title=em(f":shield: 3 - 7 seconds ({fix_persian('پیشنهادی و امن')})"), value="3_7")
-    c_slow = questionary.Choice(title=em(f":hourglass: 5 - 10 seconds ({fix_persian('محافظه‌کارانه و کند')})"), value="5_10")
-    c_custom = questionary.Choice(title=em(f":gear: Custom interval... ({fix_persian('تنظیم دلخواه و دستی')})"), value="custom")
+    c_fast = questionary.Choice(title=em(":zap: 2 - 5 seconds (Fast)"), value="2_5")
+    c_safe = questionary.Choice(title=em(":shield: 3 - 7 seconds (Recommended & Safe)"), value="3_7")
+    c_slow = questionary.Choice(title=em(":hourglass: 5 - 10 seconds (Conservative / Slow)"), value="5_10")
+    c_custom = questionary.Choice(title=em(":gear: Custom interval... (Manual entry)"), value="custom")
     choices = [c_fast, c_safe, c_slow, c_custom]
 
     selected = questionary.select(
@@ -260,14 +236,8 @@ def ask_api_delay_range(default_range: list = None) -> list:
     elif selected == "5_10":
         return [5, 10]
     elif selected == "custom":
-        min_p = format_bilingual_prompt(
-            "Base API request delay min (seconds)",
-            "حداقل تاخیر پایه ریکوئست‌های اینستاگرام به ثانیه"
-        )
-        max_p = format_bilingual_prompt(
-            "Base API request delay max (seconds)",
-            "حداکثر تاخیر پایه ریکوئست‌های اینستاگرام به ثانیه"
-        )
+        min_p = "Base API request delay min (seconds):"
+        max_p = "Base API request delay max (seconds):"
         min_val_str = questionary.text(em(min_p), default=str(default_range[0])).ask() or str(default_range[0])
         max_val_str = questionary.text(em(max_p), default=str(default_range[1])).ask() or str(default_range[1])
         try:
@@ -289,15 +259,12 @@ def ask_delay_range(action_name: str = "likes", default_range: list = None) -> l
     if not default_range or len(default_range) != 2:
         default_range = [60, 90]
 
-    prompt_text = em(
-        f"Select delay interval between {action_name} (seconds):\n"
-        f"  ↪ {fix_persian(f'انتخاب بازه تاخیر و وقفه بین {action_name} به ثانیه')}:"
-    )
+    prompt_text = em(f"Select delay interval between {action_name} (seconds):")
 
-    c_25_50 = questionary.Choice(title=em(f":zap: 25 - 50 seconds ({fix_persian('سریع / متوسط')})"), value="25_50")
-    c_60_90 = questionary.Choice(title=em(f":shield: 60 - 90 seconds ({fix_persian('پیشنهادی امن و استاندارد')})"), value="60_90")
-    c_90_150 = questionary.Choice(title=em(f":hourglass: 90 - 150 seconds ({fix_persian('خیلی امن و محافظه‌کارانه')})"), value="90_150")
-    c_custom = questionary.Choice(title=em(f":gear: Custom interval... ({fix_persian('تنظیم دلخواه و دستی')})"), value="custom")
+    c_25_50 = questionary.Choice(title=em(":zap: 25 - 50 seconds (Fast)"), value="25_50")
+    c_60_90 = questionary.Choice(title=em(":shield: 60 - 90 seconds (Standard & Safe)"), value="60_90")
+    c_90_150 = questionary.Choice(title=em(":hourglass: 90 - 150 seconds (Conservative / Slow)"), value="90_150")
+    c_custom = questionary.Choice(title=em(":gear: Custom interval... (Manual entry)"), value="custom")
     choices = [c_25_50, c_60_90, c_90_150, c_custom]
 
     selected = questionary.select(
@@ -313,14 +280,8 @@ def ask_delay_range(action_name: str = "likes", default_range: list = None) -> l
     elif selected == "90_150":
         return [90, 150]
     elif selected == "custom":
-        min_p = format_bilingual_prompt(
-            f"Enter minimum delay for {action_name} (seconds)",
-            f"حداقل تاخیر بین {action_name} به ثانیه"
-        )
-        max_p = format_bilingual_prompt(
-            f"Enter maximum delay for {action_name} (seconds)",
-            f"حداکثر تاخیر بین {action_name} به ثانیه"
-        )
+        min_p = f"Enter minimum delay for {action_name} (seconds):"
+        max_p = f"Enter maximum delay for {action_name} (seconds):"
         min_val_str = questionary.text(em(min_p), default=str(default_range[0])).ask() or str(default_range[0])
         max_val_str = questionary.text(em(max_p), default=str(default_range[1])).ask() or str(default_range[1])
         try:
@@ -332,6 +293,66 @@ def ask_delay_range(action_name: str = "likes", default_range: list = None) -> l
     else:
         return default_range
 
+
+def show_system_dashboard():
+    """Displays a stylized system dashboard with multiple columns."""
+    from rich.panel import Panel
+    from rich.columns import Columns
+    from rich.table import Table
+    import platform
+    from src.config import DATABASE_PATH, SESSIONS_DIR
+
+    # 1. System Info Panel
+    sys_table = Table(box=None, padding=(0, 1), show_header=False)
+    sys_table.add_row(em(":desktop_computer: OS:"), platform.system() + " " + platform.release())
+    sys_table.add_row(em(":clock1: Time:"), datetime.datetime.now().strftime("%H:%M:%S"))
+    sys_panel = Panel(sys_table, title=em("[bold cyan]System Status[/bold cyan]"), border_style="cyan")
+
+    # 2. Storage & DB Info Panel
+    db_size = "0 KB"
+    if os.path.exists(DATABASE_PATH):
+        db_size = f"{os.path.getsize(DATABASE_PATH) / 1024:.1f} KB"
+        
+    sessions_count = len([name for name in os.listdir(SESSIONS_DIR) if os.path.isfile(os.path.join(SESSIONS_DIR, name))]) if os.path.exists(SESSIONS_DIR) else 0
+
+    storage_table = Table(box=None, padding=(0, 1), show_header=False)
+    storage_table.add_row(em(":floppy_disk: DB Size:"), db_size)
+    storage_table.add_row(em(":key: Saved Sessions:"), str(sessions_count))
+    storage_panel = Panel(storage_table, title=em("[bold green]Storage & DB[/bold green]"), border_style="green")
+
+    # Display columns
+    console.print(Columns([sys_panel, storage_panel], expand=True))
+    console.print()
+
+def show_markdown(text: str):
+    """Renders markdown text elegantly."""
+    from rich.markdown import Markdown
+    md = Markdown(text)
+    console.print(md)
+    console.print()
+
+def show_config_tree():
+    """Displays the current configuration in a beautiful tree structure."""
+    from rich.tree import Tree
+    from src.config import STORAGE_DIR, SESSIONS_DIR, DATABASE_DIR, LOGS_DIR, get_delay_range, load_comments
+    
+    tree = Tree(em(":robot: [bold cyan]Bot Configuration System[/bold cyan]"))
+    
+    dirs = tree.add(em(":open_file_folder: [bold yellow]Directories[/bold yellow]"))
+    dirs.add(f"[green]Storage Root:[/green] {STORAGE_DIR}")
+    dirs.add(f"[green]Sessions:[/green] {SESSIONS_DIR}")
+    dirs.add(f"[green]Database:[/green] {DATABASE_DIR}")
+    dirs.add(f"[green]Logs:[/green] {LOGS_DIR}")
+    
+    api = tree.add(em(":gear: [bold yellow]API Settings[/bold yellow]"))
+    api.add(f"[green]Request Delay Range:[/green] {get_delay_range()} seconds")
+    
+    comments = load_comments()
+    msg = tree.add(em(":speech_balloon: [bold yellow]Comments Data[/bold yellow]"))
+    msg.add(f"[green]Loaded Templates:[/green] {len(comments)} items")
+    
+    console.print(tree)
+    console.print()
 
 def log_print(*args, _stack_offset: int = 2, **kwargs):
     """Logs messages with Rich console and writes to storage/logs/bot.log."""
@@ -502,7 +523,7 @@ def show_user_table(users: list, title: str = "Target Users"):
         fname = str(getattr(user, 'full_name', '-'))
         is_priv = getattr(user, 'is_private', False)
         privacy = em("[red]:lock: Private[/red]") if is_priv else em("[green]:globe_with_meridians: Public[/green]")
-        table.add_row(str(i), uid, f"@{uname}", fix_persian(fname) if fname else "[dim]-[/dim]", privacy)
+        table.add_row(str(i), uid, f"@{uname}", fname if fname else "[dim]-[/dim]", privacy)
 
     console.print(table)
 

@@ -1,19 +1,18 @@
 [project]
 name = "instagrapi-cli-bot"
 version = "0.1.0"
-description = "Instagram automation CLI bot for auto-liking following posts, extracting likers, and automated comments"
+description = "Smart, safe Instagram CLI engagement bot with 2FA support, persistent SQLite queues, Termux device fingerprinting, and rich terminal dashboard."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "instagrapi>=2.18.18",
     "questionary>=2.0.1",
     "rich>=13.7.1",
-    "arabic-reshaper>=3.0.0",
-    "python-bidi>=0.4.2",
 ]
 
 [project.scripts]
 instabot = "src.main:main"
+timeline-bot = "src.services.timeline_liker:main"
 followers-bot = "src.services.followers_liker:main"
 post-likers-bot = "src.services.post_liker:main"
 

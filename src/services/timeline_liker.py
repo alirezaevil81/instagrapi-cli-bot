@@ -11,7 +11,7 @@ from rich.table import Table
 from rich import box
 
 from src.core.client import Bot
-from src.config import load_comments
+from src.config import load_comments, COMMENTS_FILE_PATH
 from src.database.engine import init_db
 from src.database.repository import has_recent_interaction
 from src.utils import (
@@ -24,7 +24,6 @@ from src.utils import (
     log_error,
     log_warning,
     log_success,
-    fix_persian,
     format_bilingual_prompt,
     ask_yes_no,
     ask_delay_range,
@@ -52,7 +51,7 @@ def format_relative_time(timestamp: float) -> str:
 def display_timeline_posts_table(posts: list) -> None:
     """Renders a beautiful Rich Table showing all timeline posts sorted newest to oldest."""
     table = Table(
-        title=em(f":newspaper: [bold cyan]{fix_persian('پست‌های استخراج‌شده فید تایم‌لاین')}[/bold cyan] [dim](Newest :arrow_right: Oldest)[/dim]"),
+        title=em(":newspaper: [bold cyan]Extracted Timeline Feed Posts[/bold cyan] [dim](Newest :arrow_right: Oldest)[/dim]"),
         box=box.ROUNDED,
         show_header=True,
         header_style="bold magenta",
@@ -71,7 +70,7 @@ def display_timeline_posts_table(posts: list) -> None:
         caption = (post.get("caption_text", "") or "").replace("\n", " ")
         if len(caption) > 40:
             caption = caption[:37] + "..."
-        caption_disp = fix_persian(caption) if caption else "[dim]No caption[/dim]"
+        caption_disp = caption if caption else "[dim]No caption[/dim]"
         
         is_already_liked = post.get("has_liked", False) or has_recent_interaction(post["pk"], "like")
         if is_already_liked:
@@ -109,47 +108,42 @@ def main():
         sys.exit(0)
 
     # ----------- Interactive Configuration (Questionary) --------------
-    console.print(f"\n[bold cyan]:gear: Configure Timeline Bot Parameters[/bold cyan]\n  [dim]↪ {fix_persian('تنظیم پارامترهای تایم‌لاین فید')}[/dim]")
+    console.print("\n[bold cyan]:gear: Configure Timeline Bot Parameters[/bold cyan]")
 
     # Warm-up option (Selectable Yes/No)
     enable_warmup = ask_yes_no(
         "Perform natural account warm-up actions before starting?",
-        "انجام آماده‌سازی و رفتار ارگانیک قبل از شروع ربات؟",
         default=True
     )
 
     # Max pages to paginate per cycle (Presets + Custom)
     max_pages = ask_choice_or_custom(
         english_title="Select max feed pages to fetch per cycle",
-        persian_title="حداکثر صفحات فید برای دریافت در هر دور",
         options=[
-            (3, "3 pages", "سریع و سبک", ":zap:"),
-            (6, "6 pages", "پیشنهادی و استاندارد", ":shield:"),
-            (10, "10 pages", "عمیق‌تر", ":mag:"),
-            (15, "15 pages", "حداکثر فید", ":rocket:"),
+            (3, "3 pages", "Fast & Light", ":zap:"),
+            (6, "6 pages", "Recommended & Standard", ":shield:"),
+            (10, "10 pages", "Deeper Feed", ":mag:"),
+            (15, "15 pages", "Maximum Feed", ":rocket:"),
         ],
         default_val=6,
         custom_prompt_en="Enter custom max pages count",
-        custom_prompt_fa="تعداد صفحات دلخواه را وارد کنید",
         val_type=int
     )
 
     # Like delay configuration with presets (25-50s, 60-90s, 90-150s, Custom)
-    bot.like_delay_range = ask_delay_range("likes (لایک‌ها)", default_range=[60, 90])
+    bot.like_delay_range = ask_delay_range("likes", default_range=[60, 90])
 
     # Refresh cooldown between cycles (Presets + Custom)
     refresh_cooldown_min = ask_choice_or_custom(
         english_title="Select cooldown before refreshing timeline feed again (minutes)",
-        persian_title="فاصله زمانی استراحت تا رفرش مجدد فید به دقیقه",
         options=[
-            (1, "1 minute", "سریع", ":zap:"),
-            (3, "3 minutes", "پیشنهادی و امن", ":shield:"),
-            (5, "5 minutes", "محافظه‌کارانه", ":hourglass:"),
-            (10, "10 minutes", "استراحت طولانی", ":sleeping:"),
+            (1, "1 minute", "Fast", ":zap:"),
+            (3, "3 minutes", "Recommended & Safe", ":shield:"),
+            (5, "5 minutes", "Conservative", ":hourglass:"),
+            (10, "10 minutes", "Long Rest", ":sleeping:"),
         ],
         default_val=3,
         custom_prompt_en="Enter custom cooldown minutes",
-        custom_prompt_fa="دقیقه استراحت دلخواه را وارد کنید",
         val_type=float
     )
     refresh_cooldown_seconds = int(refresh_cooldown_min * 60)
@@ -157,26 +151,24 @@ def main():
     # Commenting toggle (Selectable Yes/No)
     commenting = ask_yes_no(
         "Enable automated comments on timeline posts?",
-        "ارسال خودکار کامنت روی پست‌های تایم‌لاین؟",
         default=False
     )
     if commenting:
         current_comments = load_comments()
         if not current_comments:
-            log_warning("Notice: [bold yellow]comments.txt[/bold yellow] is currently empty. Please write your custom comments into [bold yellow]comments.txt[/bold yellow]! :warning:")
+            log_warning(f"Notice: [bold yellow]{COMMENTS_FILE_PATH}[/bold yellow] is currently empty. Please write your custom comments into [bold yellow]{COMMENTS_FILE_PATH}[/bold yellow]! :warning:")
         else:
-            log_print(f"Automated commenting is [bold green]ENABLED[/bold green] ({len(current_comments)} comments loaded from [bold yellow]comments.txt[/bold yellow]) :white_check_mark:")
-        bot.comment_delay_range = ask_delay_range("comments (کامنت‌ها)", default_range=[60, 90])
+            log_print(f"Automated commenting is [bold green]ENABLED[/bold green] ({len(current_comments)} comments loaded from [bold yellow]{COMMENTS_FILE_PATH}[/bold yellow]) :white_check_mark:")
+        bot.comment_delay_range = ask_delay_range("comments", default_range=[60, 90])
 
     # Story Interaction Toggle (Selectable Yes/No)
     story_interaction = ask_yes_no(
         "Enable automated story viewing (all) & liking (last story) for authors with active stories?",
-        "مشاهده تمام استوری‌ها و لایک خودکار فقط استوری آخر منتشرکننده پست؟",
         default=True
     )
     if story_interaction:
         log_print("Automated Story Viewing & Liking Last Story is [bold green]ENABLED[/bold green] :clapper: :heart:")
-        bot.story_delay_range = ask_delay_range("last story like cooldown (تاخیر اصلی بعد از لایک استوری آخر)", default_range=[30, 60])
+        bot.story_delay_range = ask_delay_range("last story like cooldown", default_range=[30, 60])
     else:
         log_print("Automated Story Interaction is [bold red]DISABLED[/bold red] :cross_mark:")
 

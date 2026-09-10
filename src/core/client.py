@@ -31,13 +31,20 @@ from src.core.exceptions import (
 )
 
 import questionary
-from src.config import comments, SESSIONS_DIR, ensure_storage_directories, load_comments, COMMENTS_FILE_PATH, DELAY_RANGE
+from src.config import (
+    comments,
+    SESSIONS_DIR,
+    ensure_storage_directories,
+    load_comments,
+    COMMENTS_FILE_PATH,
+    DELAY_RANGE,
+    get_delay_range,
+)
 from src.database.repository import record_interaction, has_recent_interaction
 from src.utils.console import (
     log_print,
     log_sleep,
     show_banner,
-    fix_persian,
     format_bilingual_prompt,
     ask_yes_no,
     log_success,
@@ -60,7 +67,11 @@ def default_challenge_code_handler(username: str, choice_method=None) -> str:
 class Bot(Client):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.delay_range = list(DELAY_RANGE)
+        # Delay range is disabled (None) during initialization & authentication
+        # to ensure fast login without artificial pauses between requests
+        self.delay_range = None
+        self._post_login_delay_applied = False
+        self._in_start_flow = False
         self.like_delay_range = [30, 60]
         self.comment_delay_range = [60, 90]
         self.story_delay_range = [2, 5]
@@ -69,6 +80,49 @@ class Bot(Client):
         # Ensure bloks_versioning_id is never empty to prevent CAA/Bloks hash errors
         if not getattr(self, "bloks_versioning_id", None):
             self.bloks_versioning_id = "ce555e5500576acd8e84a66018f54a05720f2dce29f0bb5a1f97f0c10d6fac48"
+
+    def apply_post_login_delays(self):
+        """
+        Applies the configured API request delay range (from .env DELAY_RANGE)
+        after login is completed, avoiding any delays during the authentication process.
+        """
+        configured_range = list(get_delay_range())
+        self.delay_range = configured_range
+        if not self._post_login_delay_applied:
+            log_print(f"API request delay activated: [bold cyan]{self.delay_range}[/bold cyan] seconds (post-login) :stopwatch:")
+            self._post_login_delay_applied = True
+
+    def login(self, *args, **kwargs):
+        res = super().login(*args, **kwargs)
+        if res and getattr(self, "user_id", None) and not getattr(self, "_in_start_flow", False):
+            self.apply_post_login_delays()
+        return res
+
+    def login_by_sessionid(self, *args, **kwargs):
+        res = super().login_by_sessionid(*args, **kwargs)
+        if getattr(self, "user_id", None) and not getattr(self, "_in_start_flow", False):
+            self.apply_post_login_delays()
+        return res
+
+    def load_settings(self, *args, **kwargs):
+        res = super().load_settings(*args, **kwargs)
+        if getattr(self, "_in_start_flow", False):
+            self.delay_range = None
+        elif getattr(self, "user_id", None):
+            self.apply_post_login_delays()
+        return res
+
+    def set_settings(self, *args, **kwargs):
+        res = super().set_settings(*args, **kwargs)
+        if getattr(self, "_in_start_flow", False):
+            self.delay_range = None
+        return res
+
+    def set_delay_range(self, delay_range: list):
+        if getattr(self, "_in_start_flow", False):
+            self.delay_range = None
+            return
+        self.delay_range = delay_range
 
     def get_saved_sessions(self) -> list:
         """Returns a sorted list of saved session usernames from storage/sessions/."""
@@ -87,6 +141,7 @@ class Bot(Client):
         return os.path.join(SESSIONS_DIR, f"{username}.json")
 
     def start(self):
+        self._in_start_flow = True
         ensure_storage_directories()
         show_banner("Instagram CLI Bot", "Automated Instagram Engagement & Liker Bot")
 
@@ -100,31 +155,31 @@ class Bot(Client):
             if saved_sessions:
                 choices = [
                     questionary.Choice(
-                        title=em(f":bust_in_silhouette: @{u}\n   ↪ {fix_persian('نشست و سشن ذخیره‌شده')}"),
+                        title=em(f":bust_in_silhouette: @{u} (Saved session)"),
                         value=u
                     ) for u in saved_sessions
                 ]
                 choices.append(
                     questionary.Choice(
-                        title=em(f":key: Login via SessionID Cookie\n   ↪ {fix_persian('ورود مستقیم با SessionID کوکی اینستاگرام')}"),
+                        title=em(":key: Login via SessionID Cookie"),
                         value="__sessionid__"
                     )
                 )
                 choices.append(
                     questionary.Choice(
-                        title=em(f":heavy_plus_sign: Login with new account\n   ↪ {fix_persian('ورود با اکانت جدید')}"),
+                        title=em(":heavy_plus_sign: Login with new account"),
                         value="__new__"
                     )
                 )
                 choices.append(
                     questionary.Choice(
-                        title=em(f":door: Exit\n   ↪ {fix_persian('انصراف و خروج')}"),
+                        title=em(":door: Exit"),
                         value="__exit__"
                     )
                 )
 
                 selected = questionary.select(
-                    em("Select an Instagram account / session to login:\n  ↪ " + fix_persian("یک اکانت یا سشن را جهت ورود انتخاب کنید:")),
+                    em("Select an Instagram account / session to login:"),
                     choices=choices
                 ).ask()
 
@@ -133,10 +188,7 @@ class Bot(Client):
                     break
                 elif selected == "__sessionid__":
                     sessionid_val = questionary.password(
-                        format_bilingual_prompt(
-                            "Paste your Instagram SessionID cookie value",
-                            "مقدار SessionID کوکی اکانت اینستاگرام خود را وارد کنید"
-                        ),
+                        "Paste your Instagram SessionID cookie value:",
                         validate=lambda val: True if len(val.strip()) > 0 else "SessionID cannot be empty"
                     ).ask()
                     if not sessionid_val:
@@ -144,10 +196,7 @@ class Bot(Client):
                         continue
 
                     uname_for_sid = questionary.text(
-                        format_bilingual_prompt(
-                            "Enter the Username for this SessionID",
-                            "نام کاربری مربوط به این SessionID را وارد کنید"
-                        ),
+                        "Enter the Username for this SessionID:",
                         validate=lambda val: True if len(val.strip()) > 0 else "Username cannot be empty"
                     ).ask()
                     if not uname_for_sid:
@@ -156,8 +205,9 @@ class Bot(Client):
 
                     username = uname_for_sid.strip().lower()
                     try:
-                        self.login_by_sessionid(sessionid_val.strip())
-                        self.get_timeline_feed()
+                        with console.status(f"[bold cyan]:hourglass_flowing_sand: Authenticating SessionID for @{username}...[/bold cyan]"):
+                            self.login_by_sessionid(sessionid_val.strip())
+                            self.get_timeline_feed()
                     except Exception as se:
                         log_error("Failed to login via SessionID: ", str(se))
                         continue
@@ -171,10 +221,7 @@ class Bot(Client):
 
                 elif selected == "__new__":
                     username = questionary.text(
-                        format_bilingual_prompt(
-                            "Enter your Instagram Username",
-                            "نام کاربری اینستاگرام خود را وارد کنید"
-                        ),
+                        "Enter your Instagram Username:",
                         validate=lambda val: True if len(val.strip()) > 0 else "Username cannot be empty"
                     ).ask()
                     if not username:
@@ -187,18 +234,18 @@ class Bot(Client):
                     login_via_session = True
             else:
                 login_method = questionary.select(
-                    em("Select login method:\n  ↪ " + fix_persian("روش ورود به اکانت را انتخاب کنید:")),
+                    em("Select login method:"),
                     choices=[
                         questionary.Choice(
-                            title=em(f":bust_in_silhouette: Username & Password\n   ↪ {fix_persian('ورود با نام‌کاربری و رمز عبور')}"),
+                            title=em(":bust_in_silhouette: Username & Password"),
                             value="password"
                         ),
                         questionary.Choice(
-                            title=em(f":key: SessionID Cookie (Recommended)\n   ↪ {fix_persian('ورود مستقیم با SessionID کوکی اینستاگرام (پیشنهادی)')}"),
+                            title=em(":key: SessionID Cookie (Recommended)"),
                             value="sessionid"
                         ),
                         questionary.Choice(
-                            title=em(f":door: Exit\n   ↪ {fix_persian('انصراف و خروج')}"),
+                            title=em(":door: Exit"),
                             value="exit"
                         ),
                     ]
@@ -210,20 +257,14 @@ class Bot(Client):
 
                 if login_method == "sessionid":
                     sessionid_val = questionary.password(
-                        format_bilingual_prompt(
-                            "Paste your Instagram SessionID cookie value",
-                            "مقدار SessionID کوکی اینستاگرام خود را وارد کنید"
-                        ),
+                        "Paste your Instagram SessionID cookie value:",
                         validate=lambda val: True if len(val.strip()) > 0 else "SessionID cannot be empty"
                     ).ask()
                     if not sessionid_val:
                         log_warning("Login canceled.")
                         continue
                     uname_for_sid = questionary.text(
-                        format_bilingual_prompt(
-                            "Enter your Instagram Username",
-                            "نام کاربری اکانت اینستاگرام خود را وارد کنید"
-                        ),
+                        "Enter your Instagram Username:",
                         validate=lambda val: True if len(val.strip()) > 0 else "Username cannot be empty"
                     ).ask()
                     if not uname_for_sid:
@@ -231,8 +272,9 @@ class Bot(Client):
                         continue
                     username = uname_for_sid.strip().lower()
                     try:
-                        self.login_by_sessionid(sessionid_val.strip())
-                        self.get_timeline_feed()
+                        with console.status(f"[bold cyan]:hourglass_flowing_sand: Authenticating SessionID for @{username}...[/bold cyan]"):
+                            self.login_by_sessionid(sessionid_val.strip())
+                            self.get_timeline_feed()
                     except Exception as se:
                         log_error("Failed to login via SessionID: ", str(se))
                         continue
@@ -245,10 +287,7 @@ class Bot(Client):
                         break
 
                 username = questionary.text(
-                    format_bilingual_prompt(
-                        "Enter your Instagram Username",
-                        "نام کاربری اینستاگرام خود را وارد کنید"
-                    ),
+                    "Enter your Instagram Username:",
                     validate=lambda val: True if len(val.strip()) > 0 else "Username cannot be empty"
                 ).ask()
 
@@ -261,7 +300,6 @@ class Bot(Client):
                 if os.path.exists(session_path):
                     login_via_session = ask_yes_no(
                         f"Saved session found for @{username}. Do you want to use it?",
-                        f"نشست ذخیره‌شده برای @{username} یافت شد. آیا مایل به استفاده از آن هستید؟",
                         default=True
                     )
                 else:
@@ -271,9 +309,10 @@ class Bot(Client):
 
             if login_via_session:
                 try:
-                    self.load_settings(session_path)
-                    self.username = username
-                    self.get_timeline_feed()
+                    with console.status(f"[bold cyan]:hourglass_flowing_sand: Resuming session for @{username}...[/bold cyan]"):
+                        self.load_settings(session_path)
+                        self.username = username
+                        self.get_timeline_feed()
                 except (LoginRequired, ClientLoginRequired):
                     log_error("Session is invalid or expired. Re-authenticating...")
                     login_via_session = False
@@ -287,10 +326,7 @@ class Bot(Client):
 
             if not login_via_session:
                 password = questionary.password(
-                    format_bilingual_prompt(
-                        f"Enter password for @{username}",
-                        f"رمز عبور اکانت @{username} را وارد کنید"
-                    ),
+                    f"Enter password for @{username}:",
                     validate=lambda val: True if len(val.strip()) > 0 else "Password cannot be empty"
                 ).ask()
 
@@ -300,14 +336,12 @@ class Bot(Client):
 
                 try:
                     # Attempt standard login
-                    self.login(username=username, password=password)
+                    with console.status(f"[bold cyan]:hourglass_flowing_sand: Authenticating @{username}...[/bold cyan]"):
+                        self.login(username=username, password=password)
                 except TwoFactorRequired:
                     log_warning(f"Two-Factor Authentication (2FA) required for @{username} :lock:")
                     two_factor_code = questionary.text(
-                        format_bilingual_prompt(
-                            "Enter your 6-digit 2FA / Authentication Code",
-                            "کد ۶ رقمی احراز هویت دو مرحله‌ای (2FA) را وارد کنید"
-                        ),
+                        "Enter your 6-digit 2FA / Authentication Code:",
                         validate=lambda val: True if len(val.strip()) > 0 else "2FA code cannot be empty"
                     ).ask()
 
@@ -371,10 +405,14 @@ class Bot(Client):
                 login = True
                 break
 
+        self._in_start_flow = False
+        if login:
+            self.apply_post_login_delays()
+
     def get_all_self_following(self) -> dict:
         """Fetches all followings of the logged-in user with status spinner."""
         followings = {}
-        with console.status(f"[bold cyan]:hourglass_flowing_sand: {fix_persian('در حال دریافت لیست فالووینگ‌ها...')} (Fetching following list)...[/bold cyan]"):
+        with console.status("[bold cyan]:hourglass_flowing_sand: Fetching following list...[/bold cyan]"):
             try:
                 followings = self.user_following(self.user_id)
             except FeedbackRequired as fb:
@@ -673,7 +711,7 @@ class Bot(Client):
         Human-like warm-up: reads timeline feed and marks recent stories as seen
         to mimic realistic organic browsing activity before starting automated tasks.
         """
-        console.print(f"\n[bold magenta]:fire: {fix_persian('اقدامات گرم‌کردن طبیعی اکانت (Warm-up Actions)')}[/bold magenta]")
+        console.print("\n[bold magenta]:fire: Natural Account Warm-up Actions[/bold magenta]")
         log_print("Simulating organic user session: Browsing timeline feed & stories... :coffee:")
 
         # 1. Browse timeline feed
@@ -718,7 +756,7 @@ class Bot(Client):
             except Exception as e:
                 log_warning(f"Warm-up stories viewing skipped: {e}")
 
-        log_success(f"{fix_persian('فاز آماده‌سازی اکانت با موفقیت به پایان رسید!')} :sparkles:")
+        log_success("Account warm-up phase completed successfully! :sparkles:")
 
     def seen_user_post(self, media_id: str, username: str = "", user_pk: str = "") -> bool:
         """Marks a post as seen with error catching and SQLite audit logging."""
@@ -795,13 +833,13 @@ class Bot(Client):
         if comment_list is None:
             comment_list = load_comments()
         if not comment_list:
-            log_warning("No comments found in comments.txt! Please add your comments to comments.txt. :warning:")
+            log_warning(f"No comments found in {COMMENTS_FILE_PATH}! Please add your comments to {COMMENTS_FILE_PATH}. :warning:")
             return False
         try:
             raw_comment = choice(comment_list)
             comment_text = Emoji.replace(raw_comment)
             self.media_comment(media_id, comment_text)
-            log_success(f"Commented: '{fix_persian(raw_comment)}' on post {media_id} :speech_balloon:")
+            log_success(f"Commented: '{raw_comment}' on post {media_id} :speech_balloon:")
             record_interaction(
                 account_username=getattr(self, "username", "self"),
                 action_type="comment",

@@ -6,7 +6,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 import questionary
 from src.database.engine import init_db
-from src.utils.console import show_banner, console, fix_persian, em
+from src.utils.console import show_banner, console, em, show_config_tree, show_system_dashboard, show_markdown
 from src.utils.signals import register_graceful_shutdown
 from src.services.followers_liker import main as run_followers_bot
 from src.services.post_liker import main as run_post_likers_bot
@@ -30,24 +30,39 @@ def main():
             return
 
     show_banner("Instagram Bot Hub", "Select bot mode to run & automate your Instagram actions")
+    
+    welcome_text = """
+### Welcome to Instagrapi CLI Bot 🚀
+
+This is your central hub for automating Instagram engagement safely and efficiently.
+* **Safe & Human-like:** All delays and actions simulate real user behavior.
+* **2FA Support:** Fully supports accounts with Two-Factor Authentication.
+* **Smart Filtering:** Built-in SQLite queues ensure you never duplicate interactions.
+
+Choose a module below to get started!
+"""
+    show_markdown(welcome_text)
+    
+    show_system_dashboard()
+    show_config_tree()
 
     choice = questionary.select(
-        em("Select bot mode to run:\n  ↪ " + fix_persian("انتخاب ربات برای اجرا:")),
+        em("Select bot mode to run:"),
         choices=[
             questionary.Choice(
-                title=em(f":newspaper: 1. Timeline Feed Liker (Continuous Feed Liker with Auto-Refresh)\n   ↪ {fix_persian('لایک مداوم پست‌های فید تایم‌لاین با رفرش خودکار')}"),
+                title=em(":newspaper: 1. Timeline Feed Liker (Continuous Feed Liker with Auto-Refresh)"),
                 value="timeline"
             ),
             questionary.Choice(
-                title=em(f":busts_in_silhouette: 2. Following Feed Liker (Automated Liker for Accounts You Follow)\n   ↪ {fix_persian('لایک خودکار جدیدترین پست‌های فالووینگ‌ها')}"),
+                title=em(":busts_in_silhouette: 2. Following Feed Liker (Automated Liker for Accounts You Follow)"),
                 value="followers"
             ),
             questionary.Choice(
-                title=em(f":target: 3. Post Likers Bot (Extract Likers & Automated Engagement)\n   ↪ {fix_persian('استخراج و تعامل با لایک‌کنندگان پست هدف')}"),
+                title=em(":target: 3. Post Likers Bot (Extract Likers & Automated Engagement)"),
                 value="posts"
             ),
             questionary.Choice(
-                title=em(f":door: 4. Exit\n   ↪ {fix_persian('خروج از برنامه')}"),
+                title=em(":door: 4. Exit"),
                 value="exit"
             ),
         ]
@@ -60,7 +75,7 @@ def main():
     elif choice == "posts":
         run_post_likers_bot()
     else:
-        console.print(em(f"\n[bold yellow]:wave: {fix_persian('با موفقیت خارج شدید.')} Goodbye![/bold yellow]\n"))
+        console.print(em("\n[bold yellow]:wave: Exited successfully. Goodbye![/bold yellow]\n"))
 
 
 if __name__ == "__main__":

@@ -6,8 +6,11 @@ from src.config import (
     DB_PATH,
     LOG_FILE_PATH,
     COMMENTS_FILE_PATH,
+    COMMENTS_TEMPLATE_PATH,
     DELAY_RANGE,
     load_comments,
+    save_comments,
+    add_comment,
     comments
 )
 
@@ -20,7 +23,10 @@ __all__ = [
     "DB_PATH",
     "LOG_FILE_PATH",
     "COMMENTS_FILE_PATH",
+    "COMMENTS_TEMPLATE_PATH",
     "DELAY_RANGE",
     "load_comments",
+    "save_comments",
+    "add_comment",
     "comments"
 ]

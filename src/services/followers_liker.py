@@ -7,7 +7,7 @@ from random import randint
 import questionary
 
 from src.core.client import Bot
-from src.config import load_comments
+from src.config import load_comments, COMMENTS_FILE_PATH
 from src.database.engine import init_db
 from src.utils import (
     log_print,
@@ -19,7 +19,6 @@ from src.utils import (
     log_error,
     log_warning,
     log_success,
-    fix_persian,
     format_bilingual_prompt,
     ask_yes_no,
     ask_delay_range,
@@ -50,75 +49,68 @@ def main():
         sys.exit(0)
 
     # ----------- Interactive Configuration (Questionary) --------------
-    console.print(f"\n[bold cyan]:gear: Configure Bot Parameters[/bold cyan]\n  [dim]↪ {fix_persian('تنظیم پارامترهای اجرایی و تاخیرها')}[/dim]")
+    console.print("\n[bold cyan]:gear: Configure Bot Parameters[/bold cyan]")
 
     # Warm-up option (Selectable Yes/No)
     enable_warmup = ask_yes_no(
         "Perform natural account warm-up actions before starting?",
-        "انجام آماده‌سازی و رفتار ارگانیک قبل از شروع ربات؟",
         default=True
     )
 
     # Like delay configuration with presets
-    bot.like_delay_range = ask_delay_range("likes (لایک‌ها)", default_range=[60, 90])
+    bot.like_delay_range = ask_delay_range("likes", default_range=[60, 90])
 
     # Posts to check per user (Presets + Custom)
     posts_amount = ask_choice_or_custom(
         english_title="Select number of recent posts to check per user",
-        persian_title="تعداد پست‌های بررسی‌شده برای هر کاربر",
         options=[
-            (2, "2 posts", "سریع و سبک", ":zap:"),
-            (4, "4 posts", "پیشنهادی و استاندارد", ":shield:"),
-            (6, "6 posts", "عمیق‌تر", ":mag:"),
-            (10, "10 posts", "بررسی کامل‌تر", ":star:"),
+            (2, "2 posts", "Fast & Light", ":zap:"),
+            (4, "4 posts", "Recommended & Standard", ":shield:"),
+            (6, "6 posts", "Deeper Check", ":mag:"),
+            (10, "10 posts", "Thorough Check", ":star:"),
         ],
         default_val=4,
         custom_prompt_en="Enter custom number of posts to check",
-        custom_prompt_fa="تعداد پست‌های دلخواه را وارد کنید",
         val_type=int
     )
 
     # Commenting toggle and delay (Selectable Yes/No)
     commenting = ask_yes_no(
         "Enable automated comments on posts?",
-        "ارسال خودکار کامنت روی پست‌ها؟",
         default=False
     )
     if commenting:
         current_comments = load_comments()
         if not current_comments:
-            log_warning("Notice: [bold yellow]comments.txt[/bold yellow] is currently empty. Please write your custom comments into [bold yellow]comments.txt[/bold yellow]! :warning:")
+            log_warning(f"Notice: [bold yellow]{COMMENTS_FILE_PATH}[/bold yellow] is currently empty. Please write your custom comments into [bold yellow]{COMMENTS_FILE_PATH}[/bold yellow]! :warning:")
         else:
-            log_print(f"Automated commenting is [bold green]ENABLED[/bold green] ({len(current_comments)} comments loaded from [bold yellow]comments.txt[/bold yellow]) :white_check_mark:")
-        bot.comment_delay_range = ask_delay_range("comments (کامنت‌ها)", default_range=[60, 90])
+            log_print(f"Automated commenting is [bold green]ENABLED[/bold green] ({len(current_comments)} comments loaded from [bold yellow]{COMMENTS_FILE_PATH}[/bold yellow]) :white_check_mark:")
+        bot.comment_delay_range = ask_delay_range("comments", default_range=[60, 90])
     else:
         log_print("Automated commenting is [bold red]DISABLED[/bold red] :cross_mark:")
 
     # Story Interaction Toggle (Selectable Yes/No)
     story_interaction = ask_yes_no(
         "Enable automated story viewing (all) & liking (last story) for followings with active stories?",
-        "مشاهده تمام استوری‌ها و لایک خودکار فقط استوری آخر فالووینگ‌ها؟",
         default=True
     )
     if story_interaction:
         log_print("Automated Story Viewing & Liking Last Story is [bold green]ENABLED[/bold green] :clapper: :heart:")
-        bot.story_delay_range = ask_delay_range("last story like cooldown (تاخیر اصلی بعد از لایک استوری آخر)", default_range=[30, 60])
+        bot.story_delay_range = ask_delay_range("last story like cooldown", default_range=[30, 60])
     else:
         log_print("Automated Story Interaction is [bold red]DISABLED[/bold red] :cross_mark:")
 
     # Sleep after user with actions (Presets + Custom)
     sleep_iter_min = ask_choice_or_custom(
         english_title="Select cooldown after processing each user (minutes)",
-        persian_title="استراحت بعد از پردازش هر کاربر به دقیقه",
         options=[
-            (1, "1 minute", "سریع", ":zap:"),
-            (2, "2 minutes", "پیشنهادی و امن", ":shield:"),
-            (4, "4 minutes", "محافظه‌کارانه", ":hourglass:"),
-            (6, "6 minutes", "استراحت طولانی", ":sleeping:"),
+            (1, "1 minute", "Fast", ":zap:"),
+            (2, "2 minutes", "Recommended & Safe", ":shield:"),
+            (4, "4 minutes", "Conservative", ":hourglass:"),
+            (6, "6 minutes", "Long Rest", ":sleeping:"),
         ],
         default_val=2,
         custom_prompt_en="Enter custom cooldown minutes after each user",
-        custom_prompt_fa="دقیقه استراحت دلخواه بعد از هر کاربر را وارد کنید",
         val_type=float
     )
     sleep_after_iteration = int(sleep_iter_min * 60)
@@ -126,16 +118,14 @@ def main():
     # Sleep after full loop (Presets + Custom)
     sleep_loop_hours = ask_choice_or_custom(
         english_title="Select cooldown after completing a full round (hours)",
-        persian_title="استراحت در پایان هر دور به ساعت",
         options=[
-            (0.5, "0.5 hour (30 mins)", "نیم ساعت", ":zap:"),
-            (1.0, "1.0 hour", "۱ ساعت - پیشنهادی", ":shield:"),
-            (2.0, "2.0 hours", "۲ ساعت - امن", ":hourglass:"),
-            (4.0, "4.0 hours", "۴ ساعت - طولانی", ":sleeping:"),
+            (0.5, "0.5 hour (30 mins)", "Half Hour", ":zap:"),
+            (1.0, "1.0 hour", "1 Hour (Recommended)", ":shield:"),
+            (2.0, "2.0 hours", "2 Hours (Safe)", ":hourglass:"),
+            (4.0, "4.0 hours", "4 Hours (Long)", ":sleeping:"),
         ],
         default_val=1.0,
         custom_prompt_en="Enter custom cooldown hours after full loop",
-        custom_prompt_fa="ساعت استراحت دلخواه در پایان دور را وارد کنید",
         val_type=float
     )
     sleep_after_loop = int(sleep_loop_hours * 3600)

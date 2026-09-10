@@ -20,25 +20,23 @@
 
 ## ⚡ Quick Start
 
-### 1. With `uv` *(Recommended)*
+### 1. Initial Setup
 ```bash
 git clone https://github.com/alirezaevil81/instagrapi-cli-bot.git
 cd instagrapi-cli-bot
 
-uv sync
-uv run instabot
+# Automated setup for directories, .env, and comments.json
+python setup.py
 ```
 
-### 2. With `pip`
+### 2. Run the Bot
 ```bash
-git clone https://github.com/alirezaevil81/instagrapi-cli-bot.git
-cd instagrapi-cli-bot
+# Interactive Bot Hub menu
+uv run instabot
 
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-
-pip install .
-python src/main.py
+# Or direct launches:
+uv run instabot-followers   # Following Feed Liker
+uv run instabot-posts       # Post Likers Bot
 ```
 
 ---
@@ -50,7 +48,7 @@ python src/main.py
 - **Dynamic Live Timers**: Animated spinners, progress bars, and real-time second countdowns during safety cooldowns.
 - **Following Engagement**: Automatically track and interact with your following list's newest posts.
 - **Target Post Likers**: Extract likers from target posts with automatic privacy and already-following filters.
-- **Persian & RTL Reshaping**: Integrated bidirectional text rendering for smooth terminal typography.
+- **Organic Human Warm-up**: Realistic timeline and story browsing simulations before executing scheduled tasks.
 
 ---
 

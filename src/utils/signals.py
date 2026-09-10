@@ -1,6 +1,6 @@
 import signal
 import sys
-from src.utils.console import log_warning, log_error, console, fix_persian
+from src.utils.console import log_warning, log_error, console
 
 _shutdown_registered = False
 
@@ -18,7 +18,7 @@ def register_graceful_shutdown(on_shutdown=None):
                 on_shutdown()
         except Exception as e:
             log_error(f"Error during shutdown callback: {e}")
-        console.print(f"[bold green]:white_check_mark: {fix_persian('توقف ایمن انجام شد و داده‌ها در پایگاه داده پایدار ذخیره گردید.')}[/bold green]")
+        console.print("[bold green]:white_check_mark: Graceful shutdown completed. All session data safely stored.[/bold green]")
         sys.exit(0)
 
     try:
