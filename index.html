@@ -71,7 +71,7 @@
       left: 12%;
       width: 600px;
       height: 600px;
-      background: radial-gradient(circle, rgba(56, 189, 248, 0.45) 0%, rgba(99, 102, 241, 0.1) 50%, transparent 70%);
+      background: radial-gradient(circle, rgba(240, 148, 51, 0.45) 0%, rgba(220, 39, 67, 0.1) 50%, transparent 70%);
     }
 
     .glow-2 {
@@ -79,7 +79,7 @@
       right: 8%;
       width: 580px;
       height: 580px;
-      background: radial-gradient(circle, rgba(168, 85, 247, 0.38) 0%, rgba(56, 189, 248, 0.1) 55%, transparent 75%);
+      background: radial-gradient(circle, rgba(220, 39, 67, 0.38) 0%, rgba(204, 35, 102, 0.1) 55%, transparent 75%);
       animation-duration: 15s;
       animation-delay: -5s;
     }
@@ -89,7 +89,7 @@
       left: 60%;
       width: 450px;
       height: 450px;
-      background: radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, transparent 70%);
+      background: radial-gradient(circle, rgba(188, 24, 136, 0.25) 0%, transparent 70%);
       animation-duration: 18s;
       animation-delay: -2s;
     }
@@ -117,8 +117,9 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 16px;
-      max-width: 760px;
+      gap: 12px;
+      max-width: 820px;
+      margin-top: 24px;
     }
 
     .brand-logo-wrap {
@@ -129,25 +130,26 @@
       width: 96px;
       height: 96px;
       border-radius: 26px;
-      background: linear-gradient(135deg, rgba(56, 189, 248, 0.22) 0%, rgba(15, 23, 42, 0.95) 100%);
-      border: 1.5px solid rgba(56, 189, 248, 0.45);
-      box-shadow: 0 16px 36px -6px rgba(56, 189, 248, 0.35), 0 0 24px rgba(56, 189, 248, 0.2);
+      background: linear-gradient(135deg, rgba(240, 148, 51, 0.22) 0%, rgba(15, 23, 42, 0.95) 100%);
+      border: 1.5px solid rgba(220, 39, 67, 0.45);
+      box-shadow: 0 16px 36px -6px rgba(220, 39, 67, 0.35), 0 0 24px rgba(204, 35, 102, 0.2);
       backdrop-filter: blur(16px);
       transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
       animation: floatRobot 5s ease-in-out infinite alternate;
+      margin-bottom: 8px;
     }
 
     .brand-logo-wrap:hover {
       transform: translateY(-5px) scale(1.08) rotate(2deg);
-      border-color: rgba(56, 189, 248, 0.8);
-      box-shadow: 0 20px 48px -4px rgba(56, 189, 248, 0.55), 0 0 35px rgba(56, 189, 248, 0.35);
+      border-color: rgba(220, 39, 67, 0.8);
+      box-shadow: 0 20px 48px -4px rgba(220, 39, 67, 0.55), 0 0 35px rgba(204, 35, 102, 0.35);
     }
 
     .brand-logo-img {
-      width: 72px;
-      height: 72px;
+      width: 76px;
+      height: 76px;
       object-fit: contain;
-      filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.5));
+      filter: drop-shadow(0 8px 16px rgba(220, 39, 67, 0.25));
     }
 
     @keyframes floatRobot {
@@ -159,56 +161,59 @@
       display: inline-flex;
       align-items: center;
       gap: 10px;
-      background: rgba(56, 189, 248, 0.08);
-      color: var(--accent);
-      border: 1px solid rgba(56, 189, 248, 0.28);
+      background: rgba(240, 148, 51, 0.08);
+      color: #fca5a5;
+      border: 1px solid rgba(240, 148, 51, 0.2);
       padding: 6px 18px;
       border-radius: 9999px;
-      font-size: 13px;
+      font-size: 13.5px;
       font-weight: 600;
       backdrop-filter: blur(16px);
-      box-shadow: 0 4px 24px rgba(56, 189, 248, 0.15);
+      box-shadow: 0 4px 24px rgba(220, 39, 67, 0.1);
       transition: all 0.3s ease;
+      margin-bottom: 12px;
     }
 
     .status-badge:hover {
-      background: rgba(56, 189, 248, 0.18);
-      border-color: rgba(56, 189, 248, 0.5);
+      background: rgba(220, 39, 67, 0.15);
+      border-color: rgba(220, 39, 67, 0.4);
       transform: translateY(-2px);
-      box-shadow: 0 6px 28px rgba(56, 189, 248, 0.25);
+      box-shadow: 0 6px 28px rgba(220, 39, 67, 0.2);
     }
 
     .badge-dot {
       width: 8px;
       height: 8px;
-      background: var(--accent);
+      background: #f09433;
       border-radius: 50%;
-      box-shadow: 0 0 12px var(--accent);
+      box-shadow: 0 0 12px #f09433;
       animation: pulseDot 2s infinite ease-in-out;
     }
 
     @keyframes pulseDot {
-      0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 10px var(--accent); }
-      50% { opacity: 0.35; transform: scale(0.7); box-shadow: 0 0 3px var(--accent); }
+      0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 10px #f09433; }
+      50% { opacity: 0.35; transform: scale(0.7); box-shadow: 0 0 3px #f09433; }
     }
 
     h1 {
-      font-size: clamp(34px, 5.8vw, 54px);
+      font-size: clamp(38px, 6.5vw, 62px);
       font-weight: 800;
       letter-spacing: -0.04em;
       color: #ffffff;
-      line-height: 1.12;
-      background: linear-gradient(135deg, #ffffff 35%, #cbd5e1 75%, #38bdf8 100%);
+      line-height: 1.1;
+      background: linear-gradient(135deg, #ffffff 20%, #f43f5e 60%, #d946ef 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
+      margin-top: 8px;
     }
 
     p.subtitle {
-      color: var(--text-muted);
-      font-size: clamp(15px, 2.2vw, 17.5px);
+      color: #94a3b8;
+      font-size: clamp(16px, 2.5vw, 19px);
       font-weight: 400;
-      max-width: 580px;
-      line-height: 1.65;
+      max-width: 620px;
+      line-height: 1.6;
+      margin: 18px auto 0;
     }
 
     /* Terminal Simulation Showcase Window */
@@ -221,11 +226,12 @@
       overflow: hidden;
       box-shadow: 0 32px 68px -15px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
       transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      margin-top: 24px;
     }
 
     .terminal-window:hover {
-      border-color: rgba(56, 189, 248, 0.45);
-      box-shadow: 0 36px 75px -12px rgba(0, 0, 0, 0.9), 0 0 36px rgba(56, 189, 248, 0.15);
+      border-color: rgba(220, 39, 67, 0.45);
+      box-shadow: 0 36px 75px -12px rgba(0, 0, 0, 0.9), 0 0 36px rgba(204, 35, 102, 0.15);
       transform: translateY(-2px);
     }
 
@@ -285,10 +291,10 @@
     }
 
     .tab-btn.active {
-      background: rgba(56, 189, 248, 0.18);
-      color: var(--accent);
+      background: rgba(249, 50, 44, 0.12);
+      color: #fca5a5;
       font-weight: 600;
-      border: 1px solid rgba(56, 189, 248, 0.35);
+      border: 1px solid rgba(249, 50, 44, 0.35);
       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
     }
 
@@ -309,12 +315,12 @@
       min-height: 240px;
     }
 
-    .term-prompt { color: var(--accent); font-weight: 700; }
-    .term-cyan { color: #38bdf8; font-weight: 500; }
+    .term-prompt { color: #f87171; font-weight: 700; }
+    .term-cyan { color: #fca5a5; font-weight: 500; }
     .term-green { color: #34d399; font-weight: 600; }
     .term-yellow { color: #fbbf24; }
     .term-muted { color: #64748b; }
-    .term-active { color: #60a5fa; font-weight: 600; }
+    .term-active { color: #ffffff; font-weight: 600; }
 
     .live-progress {
       display: flex;
@@ -339,10 +345,10 @@
 
     .progress-bar-inner {
       height: 100%;
-      background: linear-gradient(90deg, #38bdf8, #818cf8);
+      background: linear-gradient(90deg, #f43f5e, #fb923c);
       border-radius: 999px;
       transition: width 0.4s ease;
-      box-shadow: 0 0 12px rgba(56, 189, 248, 0.6);
+      box-shadow: 0 0 12px rgba(244, 63, 94, 0.6);
     }
 
     /* 3-Cards Feature Grid */
@@ -382,29 +388,29 @@
 
     .feature-card:hover {
       transform: translateY(-5px);
-      border-color: rgba(56, 189, 248, 0.45);
-      box-shadow: 0 24px 45px -12px rgba(0, 0, 0, 0.65), 0 0 25px rgba(56, 189, 248, 0.1);
+      border-color: rgba(249, 50, 44, 0.45);
+      box-shadow: 0 24px 45px -12px rgba(0, 0, 0, 0.65), 0 0 25px rgba(249, 50, 44, 0.1);
     }
 
     .feature-icon-box {
       width: 48px;
       height: 48px;
       border-radius: 14px;
-      background: rgba(56, 189, 248, 0.12);
-      border: 1px solid rgba(56, 189, 248, 0.25);
+      background: rgba(249, 50, 44, 0.12);
+      border: 1px solid rgba(249, 50, 44, 0.25);
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 22px;
-      color: var(--accent);
+      color: #fca5a5;
       margin-bottom: 2px;
       transition: transform 0.3s ease, background-color 0.3s;
     }
 
     .feature-card:hover .feature-icon-box {
       transform: scale(1.12) rotate(4deg);
-      background: rgba(56, 189, 248, 0.22);
-      box-shadow: 0 0 16px rgba(56, 189, 248, 0.3);
+      background: rgba(249, 50, 44, 0.22);
+      box-shadow: 0 0 16px rgba(249, 50, 44, 0.3);
     }
 
     .feature-title {
@@ -422,7 +428,7 @@
 
     .feature-desc code {
       background: rgba(255, 255, 255, 0.08);
-      color: var(--accent);
+      color: #fca5a5;
       padding: 2px 6px;
       border-radius: 5px;
       font-size: 13px;
@@ -442,7 +448,7 @@
     }
 
     .quick-launcher:hover {
-      border-color: rgba(56, 189, 248, 0.38);
+      border-color: rgba(220, 39, 67, 0.38);
       transform: translateY(-2px);
     }
 
@@ -510,9 +516,9 @@
     }
 
     .env-btn.active {
-      background: rgba(56, 189, 248, 0.2);
-      color: var(--accent);
-      border: 1px solid rgba(56, 189, 248, 0.4);
+      background: rgba(220, 39, 67, 0.15);
+      color: #fca5a5;
+      border: 1px solid rgba(220, 39, 67, 0.35);
       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
     }
 
@@ -525,36 +531,146 @@
       padding: 22px 26px;
       display: flex;
       flex-direction: column;
-      gap: 18px;
+      gap: 24px;
+    }
+    
+    .doc-step {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .doc-description {
+      font-size: 14.5px;
+      color: #e2e8f0;
+      font-weight: 500;
+      line-height: 1.5;
     }
 
     .code-block-container {
-      background: #060914;
-      border: 1px solid rgba(255, 255, 255, 0.07);
-      border-radius: 14px;
-      padding: 18px 20px;
+      background: #1e1e24; /* Laravel dark code block bg */
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 0;
       position: relative;
+      overflow: hidden;
+      box-shadow: inset 0 1px 4px rgba(0,0,0,0.2);
+    }
+    
+    .code-header-bar {
+      display: flex;
+      align-items: center;
+      padding: 10px 16px;
+      background: rgba(0, 0, 0, 0.2);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: #6b7280;
+    }
+    
+    .code-header-dots {
+      display: flex;
+      gap: 6px;
+      margin-right: 16px;
+    }
+    
+    .code-header-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #374151;
+    }
+
+    .code-scroll-area {
+      padding: 16px 0;
       overflow-x: auto;
+    }
+    
+    .code-scroll-area::-webkit-scrollbar {
+      height: 6px;
+    }
+    
+    .code-scroll-area::-webkit-scrollbar-track {
+      background: transparent;
+      margin: 0 10px;
+    }
+    
+    .code-scroll-area::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+    }
+    
+    .code-scroll-area::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.2);
     }
 
     .code-lines {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 13.8px;
-      line-height: 1.85;
-      color: #e2e8f0;
+      font-size: 13.5px;
+      line-height: 1.7;
+      color: #e5e7eb;
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      min-width: max-content;
     }
 
     .code-line {
       display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 12px;
+      padding: 6px 20px;
+      margin-bottom: 2px;
+      border-left: 2px solid transparent;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    
+    .code-line:hover {
+      background: rgba(255, 255, 255, 0.04);
+      border-left-color: #bc1888;
+    }
+
+    .code-line-content {
+      display: flex;
       align-items: flex-start;
-      gap: 14px;
+      gap: 18px;
+      flex: 1;
+    }
+
+    .line-copy-btn {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #6b7280;
+      border-radius: 6px;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      opacity: 0.5;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+    
+    .code-line:hover .line-copy-btn {
+      opacity: 1;
+    }
+    
+    .line-copy-btn:hover {
+      background: rgba(220, 39, 67, 0.1);
+      color: #fca5a5;
+      border-color: rgba(220, 39, 67, 0.3);
+      opacity: 1;
+    }
+    
+    .line-copy-placeholder {
+      width: 32px;
+      flex-shrink: 0;
     }
 
     .code-line .line-num {
-      color: #475569;
+      color: #4b5563;
       user-select: none;
       font-size: 12.5px;
       min-width: 20px;
@@ -562,13 +678,24 @@
     }
 
     .code-line .cmd-text {
-      color: #38bdf8;
-      word-break: break-all;
+      color: #e5e7eb;
+      white-space: nowrap;
+    }
+    
+    .code-line .cmd-text .cmd-prompt {
+      color: #f09433; /* Instagram yellow/orange */
+      margin-right: 6px;
+      user-select: none;
+    }
+    
+    .code-line .cmd-text .cmd-arg {
+      color: #fca5a5;
     }
 
     .code-line .cmd-comment {
-      color: #64748b;
+      color: #6b7280;
       font-style: italic;
+      white-space: nowrap;
     }
 
     .launcher-footer {
@@ -576,8 +703,10 @@
       align-items: center;
       justify-content: space-between;
       flex-wrap: wrap;
-      gap: 14px;
-      padding-top: 4px;
+      gap: 16px;
+      padding: 22px 26px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(0, 0, 0, 0.15);
     }
 
     .env-info-pill {
@@ -630,10 +759,10 @@
     }
 
     .btn-github:hover {
-      background: var(--accent);
-      color: #05070f;
-      border-color: var(--accent);
-      box-shadow: 0 0 24px rgba(56, 189, 248, 0.45);
+      background: #dc2743;
+      color: #ffffff;
+      border-color: #dc2743;
+      box-shadow: 0 0 24px rgba(220, 39, 67, 0.45);
       transform: translateY(-2px);
     }
 
@@ -646,14 +775,14 @@
     }
 
     footer a {
-      color: var(--accent);
+      color: #f87171;
       text-decoration: none;
       font-weight: 600;
       transition: color 0.2s;
     }
 
     footer a:hover {
-      color: #7dd3fc;
+      color: #fca5a5;
       text-decoration: underline;
     }
 
@@ -671,9 +800,23 @@
       .terminal-body, .launcher-body {
         padding: 18px 16px;
       }
+      .code-line {
+        padding: 6px 14px;
+      }
+      .line-copy-btn {
+        opacity: 0.8; /* Always semi-visible on touch screens */
+        background: rgba(255, 255, 255, 0.03);
+      }
       .launcher-footer {
         flex-direction: column;
         align-items: stretch;
+        gap: 20px;
+        padding: 20px 16px;
+      }
+      .env-info-pill {
+        justify-content: center;
+        text-align: center;
+        line-height: 1.4;
       }
       .actions-group {
         justify-content: stretch;
@@ -704,8 +847,8 @@
         <span class="badge-dot"></span>
         Instagram Automation Suite v2.0
       </div>
-      <h1>Instagram CLI Bot</h1>
-      <p class="subtitle">A sleek, interactive, and modular automation engine crafted for safety, rate-limit defense, and smooth multi-account execution.</p>
+      <h1>Automate your Instagram with style.</h1>
+      <p class="subtitle">A sleek, interactive, and modular automation engine crafted for safety, rate-limit defense, and smooth multi-account execution right from your terminal.</p>
     </header>
 
     <!-- Interactive Terminal Showcase Window -->
@@ -722,6 +865,12 @@
           </button>
           <button class="tab-btn" id="tab-likers" onclick="switchTab('likers')">
             <span>🎯</span> Post Likers Bot
+          </button>
+          <button class="tab-btn" id="tab-comments" onclick="switchTab('comments')">
+            <span>💬</span> Comments Liker
+          </button>
+          <button class="tab-btn" id="tab-timeline" onclick="switchTab('timeline')">
+            <span>📰</span> Timeline Bot
           </button>
         </div>
       </div>
@@ -772,25 +921,21 @@
         </div>
       </div>
 
-      <div class="launcher-body">
-        <div class="code-block-container">
-          <div class="code-lines" id="code-display">
-            <!-- Dynamically populated -->
-          </div>
-        </div>
+      <div class="launcher-body" id="docs-display">
+        <!-- Dynamically populated doc steps -->
+      </div>
 
-        <div class="launcher-footer">
-          <div class="env-info-pill" id="env-info">
-            <span>💡</span> Requires Python 3.10+ • Synchronizes all dependencies automatically
-          </div>
-          <div class="actions-group">
-            <button class="btn-action btn-copy" id="copy-btn" onclick="copyActiveScript()">
-              <span id="copy-icon">📋</span> <span id="copy-label">Copy Commands</span>
-            </button>
-            <a href="https://github.com/alirezaevil81/instagrapi-cli-bot" target="_blank" rel="noopener noreferrer" class="btn-action btn-github" id="btn-github-link">
-              GitHub ↗
-            </a>
-          </div>
+      <div class="launcher-footer">
+        <div class="env-info-pill" id="env-info">
+          <span>💡</span> Requires Python 3.10+ • Synchronizes all dependencies automatically
+        </div>
+        <div class="actions-group">
+          <button class="btn-action btn-copy" id="copy-btn" onclick="copyActiveScript()">
+            <span id="copy-icon">📋</span> <span id="copy-label">Copy All Commands</span>
+          </button>
+          <a href="https://github.com/alirezaevil81/instagrapi-cli-bot" target="_blank" rel="noopener noreferrer" class="btn-action btn-github" id="btn-github-link">
+            GitHub ↗
+          </a>
         </div>
       </div>
     </div>
@@ -831,7 +976,7 @@
       draw() {
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(56, 189, 248, 0.45)';
+        ctx.fillStyle = 'rgba(249, 50, 44, 0.45)';
         ctx.fill();
       }
     }
@@ -856,7 +1001,7 @@
           const dist = Math.sqrt(dx * dx + dy * dy);
           if (dist < 115) {
             ctx.beginPath();
-            ctx.strokeStyle = `rgba(56, 189, 248, ${0.14 * (1 - dist / 115)})`;
+            ctx.strokeStyle = `rgba(249, 50, 44, ${0.14 * (1 - dist / 115)})`;
             ctx.lineWidth = 0.85;
             ctx.moveTo(particles[i].x, particles[i].y);
             ctx.lineTo(particles[j].x, particles[j].y);
@@ -886,9 +1031,10 @@
         el.innerHTML = `
           <div><span class="term-prompt">$</span> uv run instabot</div>
           <div class="term-cyan">? Select the bot you want to run:</div>
-          <div class="term-active">&gt; 👥 Following Engagement Bot (لایک و کامنت هوشمند فالووینگ‌ها)</div>
-          <div class="term-muted">&nbsp;&nbsp;🎯 Post Likers Bot (استخراج و تعامل با لایک‌کننده‌های پست هدف)</div>
-          <div class="term-muted">&nbsp;&nbsp;🚪 Exit (خروج)</div>
+          <div class="term-active">&gt; 👥 Following Engagement Bot (Smart like & comment for followings)</div>
+          <div class="term-muted">&nbsp;&nbsp;🎯 Post Likers Bot (Extract & engage with target post likers)</div>
+          <div class="term-muted">&nbsp;&nbsp;📰 Timeline Liker Bot (Engage with recent timeline posts)</div>
+          <div class="term-muted">&nbsp;&nbsp;🚪 Exit</div>
           <div style="margin-top: 6px;"><span class="term-green">✔</span> Session authenticated for <span class="term-cyan">@user_account</span> [2FA Verified]</div>
           <div><span class="term-cyan">[18:24:05]</span> Liked post <span class="term-active">#Cx89aK1</span> by <span class="term-cyan">@friend_profile</span> ❤️</div>
           <div class="live-progress">
@@ -901,7 +1047,7 @@
             <span class="term-muted">${pct}%</span>
           </div>
         `;
-      } else {
+      } else if (currentBotMode === 'likers') {
         el.innerHTML = `
           <div><span class="term-prompt">$</span> uv run post-likers-bot</div>
           <div class="term-cyan">? Enter Target Instagram Post URL:</div>
@@ -919,6 +1065,40 @@
             <span class="term-muted">${pct}%</span>
           </div>
         `;
+      } else if (currentBotMode === 'comments') {
+        el.innerHTML = `
+          <div><span class="term-prompt">$</span> uv run instabot comments</div>
+          <div class="term-cyan">? Enter target post URLs or PKs:</div>
+          <div class="term-active">&gt; https://www.instagram.com/p/DB123456789/</div>
+          <div style="margin-top: 6px;"><span class="term-green">✔</span> Extracted <span class="term-cyan">84 unliked comments</span> (Saved into SQLite Queue)</div>
+          <div><span class="term-cyan">[18:24:12]</span> Liking comment by <span class="term-cyan">@active_fan</span>: <span class="term-muted">"Great insights! 🔥"</span></div>
+          <div><span class="term-green">✔</span> Liked comment <span class="term-active">#18029381923</span> ❤️</div>
+          <div class="live-progress">
+            <span class="term-yellow">${sp}</span>
+            <span>Comment like delay:</span>
+            <span class="term-green" style="font-weight:600;">${secondsLeft}s remaining</span>
+            <div class="progress-bar-wrap">
+              <div class="progress-bar-inner" style="width: ${pct}%"></div>
+            </div>
+            <span class="term-muted">${pct}%</span>
+          </div>
+        `;
+      } else {
+        el.innerHTML = `
+          <div><span class="term-prompt">$</span> uv run timeline-bot</div>
+          <div style="margin-top: 6px;"><span class="term-green">✔</span> Session authenticated for <span class="term-cyan">@user_account</span> [Cookie Resume]</div>
+          <div><span class="term-cyan">[18:24:15]</span> Fetching latest Timeline feed (Limit: 5 posts)...</div>
+          <div><span class="term-green">✔</span> Liked new post <span class="term-active">#Dy10bZ9</span> by <span class="term-cyan">@close_friend</span> 🚀</div>
+          <div class="live-progress">
+            <span class="term-yellow">${sp}</span>
+            <span>Timeline delay:</span>
+            <span class="term-green" style="font-weight:600;">${secondsLeft}s remaining</span>
+            <div class="progress-bar-wrap">
+              <div class="progress-bar-inner" style="width: ${pct}%"></div>
+            </div>
+            <span class="term-muted">${pct}%</span>
+          </div>
+        `;
       }
     }
 
@@ -926,6 +1106,8 @@
       currentBotMode = mode;
       document.getElementById('tab-followers')?.classList.toggle('active', mode === 'followers');
       document.getElementById('tab-likers')?.classList.toggle('active', mode === 'likers');
+      document.getElementById('tab-comments')?.classList.toggle('active', mode === 'comments');
+      document.getElementById('tab-timeline')?.classList.toggle('active', mode === 'timeline');
       renderTerminal();
     }
 
@@ -943,42 +1125,79 @@
     const ENV_CONFIGS = {
       uv: {
         tag: 'Recommended • Fast',
-        info: '💡 Astral uv handles virtualenv creation, package resolution & execution automatically.',
-        lines: [
-          { comment: '# 1. Clone repository' },
-          { cmd: 'git clone https://github.com/alirezaevil81/instagrapi-cli-bot.git' },
-          { cmd: 'cd instagrapi-cli-bot' },
-          { comment: '# 2. Sync dependencies & launch' },
-          { cmd: 'uv sync' },
-          { cmd: 'uv run instabot' }
+        info: 'Astral uv handles virtualenv creation, package resolution & execution automatically.',
+        steps: [
+          {
+            desc: '1. Clone the repository and enter the directory:',
+            lines: [
+              { cmd: 'git clone https://github.com/alirezaevil81/instagrapi-cli-bot.git' },
+              { cmd: 'cd instagrapi-cli-bot' }
+            ]
+          },
+          {
+            desc: '2. Sync dependencies and launch the bot:',
+            lines: [
+              { cmd: 'uv sync' },
+              { cmd: 'uv run instabot' }
+            ]
+          }
         ]
       },
       pip: {
         tag: 'Standard Virtualenv',
-        info: '💡 Standard Python setup with venv isolation on Windows, Linux, or macOS.',
-        lines: [
-          { comment: '# 1. Clone repository & enter directory' },
-          { cmd: 'git clone https://github.com/alirezaevil81/instagrapi-cli-bot.git && cd instagrapi-cli-bot' },
-          { comment: '# 2. Create and activate virtual environment' },
-          { cmd: 'python -m venv .venv && source .venv/bin/activate' },
-          { comment: '# 3. Install packages & run' },
-          { cmd: 'pip install .' },
-          { cmd: 'python src/main.py' }
+        info: 'Standard Python setup with venv isolation on Windows, Linux, or macOS.',
+        steps: [
+          {
+            desc: '1. Clone the repository and enter the directory:',
+            lines: [
+              { cmd: 'git clone https://github.com/alirezaevil81/instagrapi-cli-bot.git' },
+              { cmd: 'cd instagrapi-cli-bot' }
+            ]
+          },
+          {
+            desc: '2. Create and activate a virtual environment:',
+            lines: [
+              { cmd: 'python -m venv .venv' },
+              { cmd: 'source .venv/bin/activate' }
+            ]
+          },
+          {
+            desc: '3. Install dependencies and run the bot:',
+            lines: [
+              { cmd: 'pip install .' },
+              { cmd: 'instabot' }
+            ]
+          }
         ]
       },
       termux: {
         tag: 'Android 24/7 Setup',
-        info: '💡 Includes export ANDROID_API_LEVEL and pre-compiled pydantic-core wheel for seamless execution on Android.',
-        lines: [
-          { comment: '# 1. Install prerequisites & export Android API level' },
-          { cmd: 'pkg install python git clang binutils libjpeg-turbo zlib freetype libffi openssl -y' },
-          { cmd: 'export ANDROID_API_LEVEL="$(getprop ro.build.version.sdk)"' },
-          { comment: '# 2. Clone repository & enter directory' },
-          { cmd: 'git clone https://github.com/alirezaevil81/instagrapi-cli-bot.git && cd instagrapi-cli-bot' },
-          { comment: '# 3. Setup venv & install pre-compiled wheel' },
-          { cmd: 'python -m venv .venv && source .venv/bin/activate' },
-          { cmd: 'pip install pydantic-core --extra-index-url https://eutalix.github.io/android-pydantic-core/' },
-          { cmd: 'pip install . && python src/main.py' }
+        info: 'Includes export ANDROID_API_LEVEL and pre-compiled pydantic-core wheel for seamless execution on Android.',
+        steps: [
+          {
+            desc: '1. Install prerequisites and export Android API level:',
+            lines: [
+              { cmd: 'pkg install python git clang binutils libjpeg-turbo zlib freetype libffi openssl -y' },
+              { cmd: 'export ANDROID_API_LEVEL="$(getprop ro.build.version.sdk)"' }
+            ]
+          },
+          {
+            desc: '2. Clone the repository and enter the directory:',
+            lines: [
+              { cmd: 'git clone https://github.com/alirezaevil81/instagrapi-cli-bot.git' },
+              { cmd: 'cd instagrapi-cli-bot' }
+            ]
+          },
+          {
+            desc: '3. Setup venv, install pre-compiled wheel & run:',
+            lines: [
+              { cmd: 'python -m venv .venv' },
+              { cmd: 'source .venv/bin/activate' },
+              { cmd: 'pip install pydantic-core --extra-index-url https://eutalix.github.io/android-pydantic-core/' },
+              { cmd: 'pip install .' },
+              { cmd: 'instabot' }
+            ]
+          }
         ]
       }
     };
@@ -992,31 +1211,60 @@
       document.getElementById('env-tag').innerText = cfg.tag;
       document.getElementById('env-info').innerHTML = `<span>💡</span> ${cfg.info}`;
 
-      const codeContainer = document.getElementById('code-display');
-      if (!codeContainer) return;
+      const docsContainer = document.getElementById('docs-display');
+      if (!docsContainer) return;
 
       let lineNum = 1;
       let html = '';
 
-      cfg.lines.forEach(item => {
-        if (item.comment) {
-          html += `
-            <div class="code-line">
-              <span class="line-num">#</span>
-              <span class="cmd-comment">${item.comment}</span>
-            </div>
-          `;
-        } else if (item.cmd) {
-          html += `
-            <div class="code-line">
-              <span class="line-num">${lineNum++}</span>
-              <span class="cmd-text">${item.cmd}</span>
-            </div>
-          `;
+      cfg.steps.forEach(step => {
+        html += `<div class="doc-step">`;
+        if (step.desc) {
+          html += `<div class="doc-description">${step.desc}</div>`;
         }
+        
+        html += `
+          <div class="code-block-container">
+            <div class="code-header-bar">
+              <div class="code-header-dots">
+                <div class="code-header-dot" style="background:#ff5f56;"></div>
+                <div class="code-header-dot" style="background:#ffbd2e;"></div>
+                <div class="code-header-dot" style="background:#27c93f;"></div>
+              </div>
+              bash
+            </div>
+            <div class="code-scroll-area">
+              <div class="code-lines">
+        `;
+
+        step.lines.forEach(item => {
+          if (item.cmd) {
+            const escapedCmd = item.cmd.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            let highlightedCmd = item.cmd;
+            
+            html += `
+              <div class="code-line">
+                <button class="line-copy-btn" onclick="copySingleLine('${escapedCmd}', this)" title="Copy this line">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                </button>
+                <div class="code-line-content">
+                  <span class="line-num">${lineNum++}</span>
+                  <span class="cmd-text"><span class="cmd-prompt">$</span> ${highlightedCmd}</span>
+                </div>
+              </div>
+            `;
+          }
+        });
+
+        html += `
+              </div>
+            </div>
+          </div>
+        </div>
+        `;
       });
 
-      codeContainer.innerHTML = html;
+      docsContainer.innerHTML = html;
     }
 
     function switchEnv(env) {
@@ -1027,16 +1275,40 @@
       renderLauncher();
     }
 
+    function copySingleLine(text, btnElement) {
+      const successFeedback = () => {
+        const originalHTML = btnElement.innerHTML;
+        btnElement.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+        btnElement.style.color = '#34d399';
+        btnElement.style.borderColor = 'rgba(52, 211, 153, 0.4)';
+        
+        setTimeout(() => {
+          btnElement.innerHTML = originalHTML;
+          btnElement.style.color = '';
+          btnElement.style.borderColor = '';
+        }, 1500);
+      };
+
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text)
+          .then(successFeedback)
+          .catch(() => fallbackCopy(text, successFeedback));
+      } else {
+        fallbackCopy(text, successFeedback);
+      }
+    }
+
     function copyActiveScript() {
       const cfg = ENV_CONFIGS[activeEnv];
       if (!cfg) return;
 
-      const rawCommands = cfg.lines
+      const rawCommands = cfg.steps
+        .flatMap(step => step.lines)
         .filter(item => item.cmd)
         .map(item => item.cmd)
         .join('\n');
 
-      navigator.clipboard.writeText(rawCommands).then(() => {
+      const successFeedback = () => {
         const icon = document.getElementById('copy-icon');
         const label = document.getElementById('copy-label');
         if (icon && label) {
@@ -1047,7 +1319,31 @@
             label.innerText = 'Copy Commands';
           }, 2000);
         }
-      });
+      };
+
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(rawCommands)
+          .then(successFeedback)
+          .catch(() => fallbackCopy(rawCommands, successFeedback));
+      } else {
+        fallbackCopy(rawCommands, successFeedback);
+      }
+    }
+
+    function fallbackCopy(text, callback) {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed"; 
+      textArea.style.left = "-9999px";
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        callback();
+      } catch (err) {
+        console.error('Fallback copy failed', err);
+      }
+      document.body.removeChild(textArea);
     }
 
     // Initial render
