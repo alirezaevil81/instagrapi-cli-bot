@@ -1,0 +1,4 @@
+instagrapi>=3.0.16
+questionary>=2.0.1
+rich>=13.7.1
+curl_cffi>=0.15.0

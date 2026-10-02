@@ -37,10 +37,26 @@ def init_db():
                 author_username TEXT NOT NULL,
                 author_pk TEXT DEFAULT '',
                 text TEXT DEFAULT '',
+                like_count INTEGER DEFAULT 0,
+                is_private INTEGER DEFAULT 0,
                 status TEXT DEFAULT 'pending',
                 added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+
+        # Migration: ensure like_count & is_private columns exist in existing databases
+        cursor.execute("PRAGMA table_info(target_comments_queue)")
+        existing_cols = [c[1] for c in cursor.fetchall()]
+        if "like_count" not in existing_cols:
+            try:
+                cursor.execute("ALTER TABLE target_comments_queue ADD COLUMN like_count INTEGER DEFAULT 0")
+            except Exception:
+                pass
+        if "is_private" not in existing_cols:
+            try:
+                cursor.execute("ALTER TABLE target_comments_queue ADD COLUMN is_private INTEGER DEFAULT 0")
+            except Exception:
+                pass
 
         # Table for interaction history and audit logging
         cursor.execute("""

@@ -478,7 +478,7 @@ def show_user_table(users: list, title: str = "Target Users"):
     console.print(table)
 
 def show_comment_table(comments: list, title: str = "Target Unliked Comments", max_display: int = 50):
-    """Renders a Rich table of comments extracted from target posts with status icons."""
+    """Renders a Rich table of comments extracted from target posts with status icons and privacy badges."""
     display_list = comments[:max_display]
     table = Table(
         title=em(f":speech_balloon: [bold cyan]{title}[/bold cyan] ([bold yellow]{len(comments)}[/bold yellow] comments total)"),
@@ -488,19 +488,22 @@ def show_comment_table(comments: list, title: str = "Target Unliked Comments", m
     )
     table.add_column(em(":hash: #"), justify="center", style="cyan", no_wrap=True, width=5)
     table.add_column(em(":bust_in_silhouette: Author"), style="bold green")
-    table.add_column(em(":speech_balloon: Comment Text"), style="white", max_width=45)
+    table.add_column(em(":shield: Privacy"), justify="center", width=12)
+    table.add_column(em(":speech_balloon: Comment Text"), style="white", max_width=40)
     table.add_column(em(":heart: Likes"), justify="center", style="magenta", width=8)
     table.add_column(em(":sparkles: Status"), justify="center")
 
     for i, c in enumerate(display_list, start=1):
         user = getattr(c, 'user', None)
         uname = str(getattr(user, 'username', '') if user else getattr(c, 'author_username', '-'))
+        is_priv = bool(getattr(c, 'is_private', False) or (getattr(user, 'is_private', False) if user else False))
+        privacy = em("[red]:lock: Private[/red]") if is_priv else em("[green]:globe_with_meridians: Public[/green]")
         text = str(getattr(c, 'text', '')).strip().replace("\n", " ")
         if len(text) > 42:
             text = text[:39] + "..."
         likes = str(getattr(c, 'like_count', 0))
         status = em("[bold green]:sparkles: Ready to Like[/bold green]")
-        table.add_row(str(i), f"@{uname}", text if text else "[dim]-[/dim]", likes, status)
+        table.add_row(str(i), f"@{uname}", privacy, text if text else "[dim]-[/dim]", likes, status)
 
     console.print(table)
     if len(comments) > max_display:

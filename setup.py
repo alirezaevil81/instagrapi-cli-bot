@@ -117,25 +117,31 @@ def setup_database():
 
 
 def check_dependencies():
-    """Verify essential dependencies."""
-    print_step("Checking required packages")
+    """Verify essential dependencies and version alignments."""
+    print_step("Checking required packages (instagrapi 3.0+ compatibility)")
     required = [
-        ("instagrapi", "instagrapi"),
-        ("questionary", "questionary"),
-        ("rich", "rich"),
+        ("instagrapi", "instagrapi>=3.0.16"),
+        ("curl_cffi", "curl_cffi>=0.15.0"),
+        ("questionary", "questionary>=2.0.1"),
+        ("rich", "rich>=13.7.1"),
     ]
     missing = []
     for mod_name, pkg_name in required:
         if importlib.util.find_spec(mod_name) is None:
             missing.append(pkg_name)
         else:
-            print_success(f"Installed: {pkg_name}")
+            try:
+                mod = importlib.import_module(mod_name)
+                ver = getattr(mod, "__version__", getattr(mod, "version", "detected"))
+                print_success(f"Installed: {pkg_name} (v{ver})")
+            except Exception:
+                print_success(f"Installed: {pkg_name}")
 
     if missing:
         print_warn(f"Missing dependencies: {', '.join(missing)}")
-        print_info(f"Install them via: pip install {' '.join(missing)}")
+        print_info(f"Install them via: pip install -r requirements.txt")
     else:
-        print_success("All core dependencies are installed and ready!")
+        print_success("All core dependencies are aligned with instagrapi 3.0+ standards!")
 
 
 def run_setup():

@@ -16,14 +16,15 @@ class SimpleUserObject:
         return f"<User @{self.username} (PK: {self.pk})>"
 
 class SimpleCommentObject:
-    """Comment representation with comment pk, media pk, author username, author pk, text, and like state."""
-    def __init__(self, pk: str, media_pk: str, author_username: str, author_pk: str = "", text: str = "", like_count: int = 0):
+    """Comment representation with comment pk, media pk, author username, author pk, text, like state, and account privacy."""
+    def __init__(self, pk: str, media_pk: str, author_username: str, author_pk: str = "", text: str = "", like_count: int = 0, is_private: bool = False):
         self.pk = str(pk)
         self.media_pk = str(media_pk)
         self.author_username = str(author_username)
         self.author_pk = str(author_pk)
         self.text = str(text)
         self.like_count = int(like_count or 0)
+        self.is_private = bool(is_private)
 
     def __repr__(self):
         return f"<Comment {self.pk} by @{self.author_username}>"
@@ -118,11 +119,13 @@ def save_target_comments_queue(comments: List[Any], clear_existing: bool = True)
             author_username = str(getattr(user, 'username', '') if user else getattr(c, 'author_username', ''))
             author_pk = str(getattr(user, 'pk', '') if user else getattr(c, 'author_pk', ''))
             text = str(getattr(c, 'text', ''))
+            like_count = int(getattr(c, 'like_count', 0) or 0)
+            is_private = 1 if (getattr(user, 'is_private', False) or getattr(c, 'is_private', False)) else 0
 
             cursor.execute("""
-                INSERT OR REPLACE INTO target_comments_queue (pk, media_pk, author_username, author_pk, text, status, added_at)
-                VALUES (?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP)
-            """, (pk, media_pk, author_username, author_pk, text))
+                INSERT OR REPLACE INTO target_comments_queue (pk, media_pk, author_username, author_pk, text, like_count, is_private, status, added_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP)
+            """, (pk, media_pk, author_username, author_pk, text, like_count, is_private))
             count += 1
 
         conn.commit()
@@ -135,7 +138,7 @@ def get_pending_target_comments() -> List[SimpleCommentObject]:
     init_db()
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT pk, media_pk, author_username, author_pk, text FROM target_comments_queue WHERE status = 'pending' ORDER BY added_at ASC")
+        cursor.execute("SELECT pk, media_pk, author_username, author_pk, text, like_count, is_private FROM target_comments_queue WHERE status = 'pending' ORDER BY added_at ASC")
         rows = cursor.fetchall()
         return [
             SimpleCommentObject(
@@ -143,7 +146,9 @@ def get_pending_target_comments() -> List[SimpleCommentObject]:
                 media_pk=row['media_pk'],
                 author_username=row['author_username'],
                 author_pk=row['author_pk'],
-                text=row['text']
+                text=row['text'],
+                like_count=row['like_count'] if 'like_count' in row.keys() else 0,
+                is_private=bool(row['is_private']) if 'is_private' in row.keys() else False
             ) for row in rows
         ]
 

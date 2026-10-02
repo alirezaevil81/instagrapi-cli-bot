@@ -32,22 +32,28 @@ python setup.py
 ### 2. Run the Bot
 ```bash
 # Interactive Bot Hub menu
+python run.py
+# or with uv:
 uv run instabot
 
-# Or direct launches:
-uv run instabot-followers   # Following Feed Liker
-uv run instabot-posts       # Post Likers Bot
+# Direct launches:
+python run.py timeline      # Timeline Feed Liker (Newest to Oldest)
+python run.py followers     # Following Feed Liker
+python run.py posts         # Target Post Likers Bot
+python run.py comments      # Target Comments Liker Bot (with 0-likes filter)
 ```
 
 ---
 
 ## ✨ Features
 
-- **Interactive Session Picker**: Switch between saved sessions (`data/json/`) via arrow keys, or add new accounts.
+- **Full Instagrapi 3.0+ Alignment**: Native support for modern CAA login, HTTP/2 requests via `curl_cffi`, Android 446 app profile, and automatic legacy password fallbacks.
+- **Post Comments Liker**: Extracts comments from target posts, filters unliked comments (optional 0-likes filter), and likes them in chronological or reverse order.
+- **Continuous Timeline Feed Liker**: Scans your feed from newest to oldest, likes new posts, views stories, and auto-refreshes periodically.
+- **Interactive Session Picker**: Switch between saved sessions (`storage/sessions/`) or authenticate via SessionID cookie.
 - **Smart 2FA & Masked Passwords**: Native handling for Two-Factor Authentication (SMS / Authenticator / Backup codes).
+- **Persistent SQLite Queues & Audit History**: Automatically persists queues and interaction history in SQLite (`storage/database/bot.db`) to prevent duplicate actions.
 - **Dynamic Live Timers**: Animated spinners, progress bars, and real-time second countdowns during safety cooldowns.
-- **Following Engagement**: Automatically track and interact with your following list's newest posts.
-- **Target Post Likers**: Extract likers from target posts with automatic privacy and already-following filters.
 - **Organic Human Warm-up**: Realistic timeline and story browsing simulations before executing scheduled tasks.
 
 ---

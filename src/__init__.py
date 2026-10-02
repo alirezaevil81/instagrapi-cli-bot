@@ -1,4 +1,9 @@
-from src.core.client import Bot, default_challenge_code_handler
+try:
+    from src.core.client import Bot, default_challenge_code_handler
+except ImportError:
+    Bot = None
+    default_challenge_code_handler = None
+
 from src.config import (
     SESSIONS_DIR,
     DATABASE_DIR,

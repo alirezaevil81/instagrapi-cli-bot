@@ -32,6 +32,7 @@ from src.core.exceptions import (
 )
 
 import questionary
+from src.core.device import apply_device_settings, DEFAULT_APP_VERSION
 from src.config import (
     comments,
     SESSIONS_DIR,
@@ -78,9 +79,9 @@ class Bot(Client):
         self.story_delay_range = [2, 5]
         self.posts_per_user = 3
         self.challenge_code_handler = default_challenge_code_handler
-        # Ensure bloks_versioning_id is never empty to prevent CAA/Bloks hash errors
-        if not getattr(self, "bloks_versioning_id", None):
-            self.bloks_versioning_id = "ce555e5500576acd8e84a66018f54a05720f2dce29f0bb5a1f97f0c10d6fac48"
+        
+        # Configure modern Android app profile and hardware settings (instagrapi 3.0+)
+        apply_device_settings(self)
 
     def apply_post_login_delays(self):
         """
@@ -94,7 +95,25 @@ class Bot(Client):
             self._post_login_delay_applied = True
 
     def login(self, *args, **kwargs):
-        res = super().login(*args, **kwargs)
+        """
+        Performs authentication. In instagrapi 3.0+, login() utilizes CAA by default.
+        Automatically falls back to login_legacy() if CAA encounters an issue,
+        ensuring smooth compatibility across all account security checkpoints.
+        """
+        try:
+            res = super().login(*args, **kwargs)
+        except Exception as exc:
+            # If CAA login fails and legacy password flow is available, attempt fallback
+            if hasattr(self, "login_legacy") and not isinstance(
+                exc, (BadPassword, InvalidUsername, AccountDisabled, TwoFactorRequired)
+            ):
+                try:
+                    res = self.login_legacy(*args, **kwargs)
+                except Exception:
+                    raise exc
+            else:
+                raise exc
+
         if res and getattr(self, "user_id", None) and not getattr(self, "_in_start_flow", False):
             self.apply_post_login_delays()
         return res
@@ -106,7 +125,23 @@ class Bot(Client):
         return res
 
     def load_settings(self, *args, **kwargs):
-        res = super().load_settings(*args, **kwargs)
+        """
+        Loads saved account session. Uses override_app_version=True in instagrapi 3.0+
+        to upgrade older session profiles to the modern 446 profile with matching Bloks hashes,
+        and migrates private_transport to modern curl HTTP/2.
+        """
+        try:
+            res = super().load_settings(*args, override_app_version=True, **kwargs)
+        except TypeError:
+            res = super().load_settings(*args, **kwargs)
+
+        # Migrate saved session transport to modern curl HTTP/2 if available (instagrapi 3.0+)
+        if hasattr(self, "set_retry_config"):
+            try:
+                self.set_retry_config(private_transport="curl")
+            except Exception:
+                pass
+
         if getattr(self, "_in_start_flow", False):
             self.delay_range = None
         elif getattr(self, "user_id", None):
@@ -1042,6 +1077,12 @@ class Bot(Client):
             elif hasattr(self, "user_stories_v1"):
                 stories = self.user_stories_v1(pk_int) or []
             return stories
+        except PrivateAccount:
+            log_warning(f"Cannot fetch stories: account {user_pk} is private.")
+            return []
+        except UserNotFound:
+            log_warning(f"User {user_pk} not found.")
+            return []
         except (LoginRequired, ClientLoginRequired):
             log_error("Login session expired while fetching user stories.")
             return []

@@ -1,6 +1,7 @@
 """
-Post Comments Liker Service: Extracts comments from target posts, filters unliked comments,
-and likes them in order with safe human-like intervals and SQLite persistence.
+Post Comments Liker Service: Extracts 0-like comments from target posts,
+and optionally likes the commenter's recent posts and views/likes their latest active story
+with safe human-like intervals, private account handling, and SQLite persistence.
 """
 import os
 import sys
@@ -10,6 +11,7 @@ import questionary
 
 from src.core.exceptions import (
     MediaNotFound,
+    UserNotFound,
     PrivateAccount,
     FeedbackRequired,
     PleaseWaitFewMinutes,
@@ -56,7 +58,7 @@ def extract_comments_from_posts(
     only_zero_likes: bool = True
 ) -> list:
     """
-    Extracts comments from a list of post URLs or PKs.
+    Extracts comments from target post URLs or PKs.
     Filters:
       - Has 0 likes (if only_zero_likes is True)
       - Not already liked by current account
@@ -96,12 +98,13 @@ def extract_comments_from_posts(
                 user = getattr(comment, 'user', None)
                 author_pk = str(getattr(user, 'pk', '') if user else '')
                 author_uname = str(getattr(user, 'username', '') if user else '')
+                is_priv = bool(getattr(user, 'is_private', False)) if user else False
                 text = str(getattr(comment, 'text', ''))
                 
                 raw_likes = getattr(comment, 'like_count', getattr(comment, 'comment_like_count', 0))
                 like_count = int(raw_likes or 0)
 
-                # 1. Zero likes condition (if requested)
+                # 1. Zero likes condition (Strictly only unliked comments)
                 if only_zero_likes and like_count > 0:
                     continue
 
@@ -124,13 +127,15 @@ def extract_comments_from_posts(
                     author_username=author_uname,
                     author_pk=author_pk,
                     text=text,
-                    like_count=like_count
+                    like_count=like_count,
+                    is_private=is_priv
                 )
 
                 unliked_comments.append(comment_obj)
                 post_unliked += 1
 
-            log_success(f"Found [bold green]{post_unliked}[/bold green] matching comments (0 likes) on post {media_id} :sparkles:")
+            filter_label = "0 likes" if only_zero_likes else "unliked"
+            log_success(f"Found [bold green]{post_unliked}[/bold green] matching comments ({filter_label}) on post {media_id} :sparkles:")
 
         except MediaNotFound:
             log_error(f"Post {post_str} not found or was removed.")
@@ -161,7 +166,10 @@ def main():
     init_db()
     register_graceful_shutdown()
 
-    show_banner("Post Comments Liker Bot", "Extract Unliked Comments from Target Posts & Auto-Like with SQLite Queue")
+    show_banner(
+        "Post Comments Liker Bot",
+        "Extract 0-Like Comments, Auto-Like, & Optional Commenter Posts and Story Engagement"
+    )
 
     cl = Bot()
     cl.start()
@@ -215,8 +223,9 @@ def main():
             default=True
         )
 
+        # Explicit 0-like condition as requested
         filter_zero_likes = ask_yes_no(
-            "Only extract comments with 0 likes (unliked by anyone)?",
+            "Only extract comments with exactly 0 likes (unliked by anyone)?",
             default=True
         )
 
@@ -235,13 +244,13 @@ def main():
 
         # Save extracted comments into SQLite queue
         saved_count = save_target_comments_queue(comments_queue, clear_existing=True)
-        log_success(f"Saved [bold cyan]{saved_count}[/bold cyan] unliked comments into SQLite database :floppy_disk:")
+        log_success(f"Saved [bold cyan]{saved_count}[/bold cyan] matching 0-like comments into SQLite database :floppy_disk:")
 
     # ----------------- Display Comments Table -----------------
-    show_comment_table(comments_queue, title="Target Unliked Comments Queue (SQLite)")
+    show_comment_table(comments_queue, title="Target 0-Like Comments Queue (SQLite)")
 
     # ----------- Interactive Configuration (Questionary) --------------
-    console.print("\n[bold cyan]:gear: Configure Bot Parameters[/bold cyan]")
+    console.print("\n[bold cyan]:gear: Configure Bot Engagement Parameters[/bold cyan]")
 
     # Warm-up option (Selectable Yes/No)
     enable_warmup = ask_yes_no(
@@ -262,7 +271,44 @@ def main():
         comments_queue = list(reversed(comments_queue))
 
     # Delay range between comment likes
-    like_delay_range = ask_delay_range("comment likes", default_range=[25, 50])
+    like_delay_range = ask_delay_range("comment likes", default_range=[25, 45])
+
+    # ----------------- OPTIONAL FEATURE 1: Liking Commenter's Recent Posts -----------------
+    like_author_posts = ask_yes_no(
+        "After liking the comment, also like recent posts of the commenter?",
+        default=False
+    )
+    posts_per_author = 2
+    author_post_delay_range = [15, 30]
+    if like_author_posts:
+        log_print("Commenter Post Liking is [bold green]ENABLED[/bold green] :camera: :heart:")
+        posts_per_author = ask_choice_or_custom(
+            english_title="Select number of recent posts to like per commenter",
+            options=[
+                (1, "1 post", "Quick & Safe", ":zap:"),
+                (2, "2 posts", "Recommended & Balanced", ":shield:"),
+                (3, "3 posts", "Thorough Engagement", ":mag:"),
+                (5, "5 posts", "Deep Engagement", ":star:"),
+            ],
+            default_val=2,
+            custom_prompt_en="Enter custom number of posts to like per commenter",
+            val_type=int
+        )
+        author_post_delay_range = ask_delay_range("commenter post likes", default_range=[15, 30])
+    else:
+        log_print("Commenter Post Liking is [bold red]DISABLED[/bold red] :cross_mark:")
+
+    # ----------------- OPTIONAL FEATURE 2: Viewing & Liking Commenter's Latest Story -----------------
+    interact_with_latest_story = ask_yes_no(
+        "View and like the commenter's latest active story (first seen, then like)?",
+        default=False
+    )
+    story_like_delay_range = [15, 30]
+    if interact_with_latest_story:
+        log_print("Commenter Latest Story Interaction is [bold green]ENABLED[/bold green] (Seen -> Like) :clapper: :heart:")
+        story_like_delay_range = ask_delay_range("story like cooldown", default_range=[15, 30])
+    else:
+        log_print("Commenter Latest Story Interaction is [bold red]DISABLED[/bold red] :cross_mark:")
 
     # Maximum comments to like in this session
     max_likes_total = ask_int(
@@ -295,7 +341,10 @@ def main():
 
     # ----------------- Engagement Loop -----------------
     console.print(f"\n[bold green]:rocket: Starting automated comment likes for {len(comments_to_process)} comments...[/bold green]\n")
-    processed_count = 0
+    processed_comments_count = 0
+    author_posts_liked_count = 0
+    stories_seen_count = 0
+    stories_liked_count = 0
     start_time = time.time()
 
     try:
@@ -306,16 +355,18 @@ def main():
             user = getattr(comment, 'user', None)
             uname = str(getattr(user, 'username', '') if user else getattr(comment, 'author_username', ''))
             upk = str(getattr(user, 'pk', '') if user else getattr(comment, 'author_pk', ''))
+            is_priv = bool(getattr(comment, 'is_private', False) or (getattr(user, 'is_private', False) if user else False))
             text = str(getattr(comment, 'text', '')).strip().replace("\n", " ")
             preview_text = (text[:60] + "...") if len(text) > 60 else text
 
+            privacy_badge = "[red]:lock: Private[/red]" if is_priv else "[green]:globe_with_meridians: Public[/green]"
             show_section_divider(
-                f":speech_balloon: Comment {i}/{len(comments_to_process)}: @{uname} (ID: {c_pk})",
+                f":speech_balloon: Comment {i}/{len(comments_to_process)}: @{uname} ({privacy_badge}) | ID: {c_pk}",
                 style="bold cyan"
             )
             log_print(f"Content: [italic white]\"{preview_text}\"[/italic white]")
 
-            # Like comment
+            # ----------------- 1. Like Comment -----------------
             success = cl.like_comment(
                 comment_pk=c_pk,
                 delay_range=like_delay_range,
@@ -326,7 +377,83 @@ def main():
             )
 
             if success:
-                processed_count += 1
+                processed_comments_count += 1
+
+                # ----------------- 2. Optional: View and Like Latest Story -----------------
+                if interact_with_latest_story and upk:
+                    if is_priv:
+                        log_warning(f"Commenter @{uname} has a private account. Skipping story interaction :lock:")
+                    else:
+                        with console.status(f"[bold cyan]Checking active stories for @{uname}...[/bold cyan]", spinner="dots"):
+                            stories = cl.get_user_active_stories(upk)
+
+                        if stories:
+                            # Extract latest story (last item in chronological story list)
+                            latest_story = stories[-1]
+                            s_pk = str(getattr(latest_story, "pk", ""))
+                            if s_pk:
+                                # Step 2a: Mark latest story as seen
+                                if not has_recent_interaction(s_pk, "story_seen"):
+                                    st_seen = cl.seen_story(s_pk, username=uname, user_pk=upk)
+                                    if st_seen:
+                                        stories_seen_count += 1
+                                        dwell = randint(2, 4)
+                                        log_sleep(dwell, message=f"Watching latest story of @{uname} ({dwell}s)")
+                                else:
+                                    log_print(f"Latest story ({s_pk}) of @{uname} was already viewed :eye:")
+
+                                # Step 2b: Like latest story
+                                if not has_recent_interaction(s_pk, "story_like"):
+                                    log_print(f"Liking latest story ({s_pk}) for @{uname} :sparkles: :heart:")
+                                    st_liked = cl.like_story(
+                                        s_pk,
+                                        delay_range=story_like_delay_range,
+                                        username=uname,
+                                        user_pk=upk
+                                    )
+                                    if st_liked:
+                                        stories_liked_count += 1
+                                else:
+                                    log_print(f"Latest story ({s_pk}) of @{uname} is already liked :heart:")
+                        else:
+                            log_print(f"No active public stories found for @{uname} :clapper:")
+
+                # ----------------- 3. Optional: Like Commenter's Recent Posts -----------------
+                if like_author_posts and upk:
+                    if is_priv:
+                        log_warning(f"Commenter @{uname} has a private account. Skipping post likes :lock:")
+                    else:
+                        with console.status(f"[bold cyan]Fetching recent posts for @{uname}...[/bold cyan]", spinner="dots"):
+                            author_posts = cl.get_user_posts(upk, amount=posts_per_author)
+
+                        if author_posts:
+                            log_print(f"Found [bold cyan]{len(author_posts)}[/bold cyan] posts for @{uname}. Engaging... :camera:")
+                            for p_idx, post in enumerate(author_posts, start=1):
+                                p_pk = str(getattr(post, 'pk', ''))
+                                if not p_pk:
+                                    continue
+
+                                has_liked = getattr(post, 'has_liked', False) or has_recent_interaction(p_pk, "like")
+                                if has_liked:
+                                    log_print(f"Post {p_pk} of @{uname} was already liked previously :white_check_mark:")
+                                    continue
+
+                                # Impression
+                                cl.seen_user_post(p_pk, username=uname, user_pk=upk)
+                                dwell_sec = randint(1, 2)
+                                log_sleep(dwell_sec, message=f"Viewing @{uname}'s post {p_idx}/{len(author_posts)} ({dwell_sec}s)")
+
+                                # Like post
+                                p_liked = cl.like_user_post(
+                                    p_pk,
+                                    delay_range=author_post_delay_range,
+                                    username=uname,
+                                    user_pk=upk
+                                )
+                                if p_liked:
+                                    author_posts_liked_count += 1
+                        else:
+                            log_print(f"No recent public posts found on @{uname}'s profile :warning:")
 
             # Remove from SQLite database queue
             remove_comment_from_queue(c_pk)
@@ -340,7 +467,7 @@ def main():
                 log_print(f":bar_chart: [bold blue]Remaining unliked comments in SQLite queue:[/bold blue] [bold magenta]{rem_count}[/bold magenta]")
 
             # Batch pause if enabled
-            if rest_every > 0 and (processed_count % rest_every == 0) and (i < len(comments_to_process)):
+            if rest_every > 0 and (processed_comments_count % rest_every == 0) and (i < len(comments_to_process)):
                 batch_sleep = randint(120, 180)
                 log_print(f"\n[bold yellow]:coffee: Completed batch of {rest_every} comment likes. Taking a safety rest ({batch_sleep}s)...[/bold yellow]")
                 log_sleep(batch_sleep, message=f"Batch safety cooldown ({batch_sleep}s)")
@@ -351,13 +478,21 @@ def main():
     elapsed_sec = int(time.time() - start_time)
     elapsed_str = f"{elapsed_sec // 60}m {elapsed_sec % 60}s" if elapsed_sec >= 60 else f"{elapsed_sec}s"
 
+    summary_metrics = {
+        ":heart: Successfully Liked Comments": f"[bold green]{processed_comments_count}[/bold green]",
+    }
+    if interact_with_latest_story:
+        summary_metrics[":clapper: Commenter Stories Viewed"] = f"[bold cyan]{stories_seen_count}[/bold cyan]"
+        summary_metrics[":heart: Commenter Stories Liked"] = f"[bold green]{stories_liked_count}[/bold green]"
+    if like_author_posts:
+        summary_metrics[":camera: Commenter Posts Liked"] = f"[bold magenta]{author_posts_liked_count}[/bold magenta]"
+
+    summary_metrics[":hourglass: Remaining in SQLite Queue"] = f"[bold yellow]{get_comment_queue_count()}[/bold yellow]"
+    summary_metrics[":clock1: Total Elapsed Time"] = f"[bold cyan]{elapsed_str}[/bold cyan]"
+
     show_stats_card(
         "Post Comments Liker Summary",
-        {
-            ":heart: Successfully Liked Comments": f"[bold green]{processed_count}[/bold green]",
-            ":hourglass: Remaining in SQLite Queue": f"[bold yellow]{get_comment_queue_count()}[/bold yellow]",
-            ":clock1: Total Elapsed Time": f"[bold cyan]{elapsed_str}[/bold cyan]"
-        },
+        summary_metrics,
         border_style="magenta"
     )
     console.print("\n[bold blue]━━━━━━━━━━━━━━━━━━━━━━━━ :sparkles: All Done :sparkles: ━━━━━━━━━━━━━━━━━━━━━━━━[/bold blue]\n")
