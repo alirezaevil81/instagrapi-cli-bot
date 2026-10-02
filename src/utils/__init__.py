@@ -12,6 +12,7 @@ from src.utils.console import (
     show_comment_table,
     show_section_divider,
     show_stats_card,
+    show_session_plan,
     fix_persian,
     format_seconds,
     format_bilingual_prompt,
@@ -19,7 +20,8 @@ from src.utils.console import (
     ask_delay_range,
     ask_api_delay_range,
     ask_choice_or_custom,
-    ask_int
+    ask_int,
+    QUESTIONARY_STYLE
 )
 from src.utils.logger import get_file_logger, clean_rich_markup
 from src.utils.signals import register_graceful_shutdown
@@ -38,6 +40,7 @@ __all__ = [
     "show_comment_table",
     "show_section_divider",
     "show_stats_card",
+    "show_session_plan",
     "fix_persian",
     "format_seconds",
     "format_bilingual_prompt",
@@ -46,6 +49,7 @@ __all__ = [
     "ask_api_delay_range",
     "ask_choice_or_custom",
     "ask_int",
+    "QUESTIONARY_STYLE",
     "get_file_logger",
     "clean_rich_markup",
     "register_graceful_shutdown"

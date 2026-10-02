@@ -65,8 +65,26 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-# Initialize Rich Console
-console = Console(log_time=True, log_path=True, log_time_format="%Y-%m-%d %H:%M:%S", legacy_windows=False)
+# Initialize Rich Console with standard modern parameters
+console = Console(log_time=True, log_path=True, log_time_format="%Y-%m-%d %H:%M:%S")
+
+try:
+    from questionary import Style
+    QUESTIONARY_STYLE = Style([
+        ("qmark", "fg:#ec4899 bold"),           # Vibrant Rose/Pink neon question mark
+        ("question", "bold white"),             # Crisp white bold question
+        ("answer", "fg:#10b981 bold"),          # Emerald green selected answer
+        ("pointer", "fg:#f43f5e bold"),         # Rose pointer arrow
+        ("highlighted", "fg:#00f0ff bold"),     # Electric Cyan highlighted choice
+        ("selected", "fg:#10b981 bold"),        # Emerald checkmark for multiselect
+        ("separator", "fg:#64748b"),            # Slate gray separator
+        ("instruction", "fg:#94a3b8 italic"),   # Muted slate instruction
+        ("text", ""),                           # Clean default text
+        ("disabled", "fg:#475569 italic"),      # Dark muted disabled
+    ])
+except Exception:
+    QUESTIONARY_STYLE = None
+
 
 def fix_persian(text: str) -> str:
     """Pass-through string helper maintained for backward compatibility."""
@@ -86,10 +104,12 @@ def ask_yes_no(english_question: str, persian_question: str = "", default: bool 
     no_choice = questionary.Choice(title=em(":x: No"), value=False)
     choices = [yes_choice, no_choice]
 
+    kwargs = {"style": QUESTIONARY_STYLE} if QUESTIONARY_STYLE else {}
     choice = questionary.select(
         prompt_text,
         choices=choices,
-        default=yes_choice if default else no_choice
+        default=yes_choice if default else no_choice,
+        **kwargs
     ).ask()
     return default if choice is None else bool(choice)
 
@@ -132,10 +152,12 @@ def ask_choice_or_custom(
     if default_choice is None and choices:
         default_choice = choices[0]
         
+    kwargs = {"style": QUESTIONARY_STYLE} if QUESTIONARY_STYLE else {}
     selected = questionary.select(
         prompt_text,
         choices=choices,
-        default=default_choice
+        default=default_choice,
+        **kwargs
     ).ask()
     
     if selected == "__custom__":
@@ -143,7 +165,8 @@ def ask_choice_or_custom(
         val_str = questionary.text(
             em(cust_prompt),
             default=str(default_val if default_val is not None else "1"),
-            validate=lambda x: True if len(x.strip()) > 0 else "Please enter a value"
+            validate=lambda x: True if len(x.strip()) > 0 else "Please enter a value",
+            **kwargs
         ).ask() or str(default_val if default_val is not None else "1")
         try:
             if val_type == int:
@@ -173,10 +196,12 @@ def ask_api_delay_range(default_range: list = None) -> list:
     c_custom = questionary.Choice(title=em(":gear: Custom interval... (Manual entry)"), value="custom")
     choices = [c_fast, c_safe, c_slow, c_custom]
 
+    kwargs = {"style": QUESTIONARY_STYLE} if QUESTIONARY_STYLE else {}
     selected = questionary.select(
         prompt_text,
         choices=choices,
-        default=c_safe
+        default=c_safe,
+        **kwargs
     ).ask()
 
     if selected == "2_5":
@@ -188,8 +213,8 @@ def ask_api_delay_range(default_range: list = None) -> list:
     elif selected == "custom":
         min_p = "Base API request delay min (seconds):"
         max_p = "Base API request delay max (seconds):"
-        min_val_str = questionary.text(em(min_p), default=str(default_range[0])).ask() or str(default_range[0])
-        max_val_str = questionary.text(em(max_p), default=str(default_range[1])).ask() or str(default_range[1])
+        min_val_str = questionary.text(em(min_p), default=str(default_range[0]), **kwargs).ask() or str(default_range[0])
+        max_val_str = questionary.text(em(max_p), default=str(default_range[1]), **kwargs).ask() or str(default_range[1])
         try:
             val1 = max(1, int(min_val_str.strip()))
             val2 = max(1, int(max_val_str.strip()))
@@ -217,10 +242,12 @@ def ask_delay_range(action_name: str = "likes", default_range: list = None) -> l
     c_custom = questionary.Choice(title=em(":gear: Custom interval... (Manual entry)"), value="custom")
     choices = [c_25_50, c_60_90, c_90_150, c_custom]
 
+    kwargs = {"style": QUESTIONARY_STYLE} if QUESTIONARY_STYLE else {}
     selected = questionary.select(
         prompt_text,
         choices=choices,
-        default=c_60_90
+        default=c_60_90,
+        **kwargs
     ).ask()
 
     if selected == "25_50":
@@ -232,8 +259,8 @@ def ask_delay_range(action_name: str = "likes", default_range: list = None) -> l
     elif selected == "custom":
         min_p = f"Enter minimum delay for {action_name} (seconds):"
         max_p = f"Enter maximum delay for {action_name} (seconds):"
-        min_val_str = questionary.text(em(min_p), default=str(default_range[0])).ask() or str(default_range[0])
-        max_val_str = questionary.text(em(max_p), default=str(default_range[1])).ask() or str(default_range[1])
+        min_val_str = questionary.text(em(min_p), default=str(default_range[0]), **kwargs).ask() or str(default_range[0])
+        max_val_str = questionary.text(em(max_p), default=str(default_range[1]), **kwargs).ask() or str(default_range[1])
         try:
             val1 = max(1, int(min_val_str.strip()))
             val2 = max(1, int(max_val_str.strip()))
@@ -245,33 +272,70 @@ def ask_delay_range(action_name: str = "likes", default_range: list = None) -> l
 
 
 def show_system_dashboard():
-    """Displays a stylized system dashboard with multiple columns."""
+    """Displays a stylized, high-fidelity system dashboard with multi-card metrics."""
     from rich.panel import Panel
     from rich.columns import Columns
     from rich.table import Table
     import platform
-    from src.config import DB_PATH, SESSIONS_DIR
+    from src.config import DB_PATH, SESSIONS_DIR, get_delay_range
 
-    # 1. System Info Panel
-    sys_table = Table(box=None, padding=(0, 1), show_header=False)
-    sys_table.add_row(em(":desktop_computer: OS:"), platform.system() + " " + platform.release())
-    sys_table.add_row(em(":clock1: Time:"), datetime.datetime.now().strftime("%H:%M:%S"))
-    sys_panel = Panel(sys_table, title=em("[bold cyan]System Status[/bold cyan]"), border_style="cyan")
+    # 1. Engine & Protocol Card
+    engine_table = Table(box=None, padding=(0, 1), show_header=False)
+    engine_table.add_row(em(":desktop_computer: Platform:"), f"[white]{platform.system()} {platform.release()[:12]}[/white]")
+    engine_table.add_row(em(":zap: Engine:"), "[bold bright_cyan]instagrapi 3.0+[/bold bright_cyan]")
+    engine_table.add_row(em(":shield: Transport:"), "[bold bright_green]curl_cffi (HTTP/2)[/bold bright_green]")
+    engine_table.add_row(em(":sparkles: Status:"), "[bold #00ffaa]● System Ready[/bold #00ffaa]")
+    engine_panel = Panel(
+        engine_table,
+        title=em("[bold cyan]:rocket: Core Engine & Protocol[/bold cyan]"),
+        border_style="cyan",
+        box=box.ROUNDED
+    )
 
-    # 2. Storage & DB Info Panel
+    # 2. Database & Queues Card
     db_size = "0 KB"
     if os.path.exists(DB_PATH):
         db_size = f"{os.path.getsize(DB_PATH) / 1024:.1f} KB"
         
     sessions_count = len([name for name in os.listdir(SESSIONS_DIR) if os.path.isfile(os.path.join(SESSIONS_DIR, name))]) if os.path.exists(SESSIONS_DIR) else 0
 
-    storage_table = Table(box=None, padding=(0, 1), show_header=False)
-    storage_table.add_row(em(":floppy_disk: DB Size:"), db_size)
-    storage_table.add_row(em(":key: Saved Sessions:"), str(sessions_count))
-    storage_panel = Panel(storage_table, title=em("[bold green]Storage & DB[/bold green]"), border_style="green")
+    pending_comments = 0
+    pending_users = 0
+    try:
+        from src.database.repository import get_comment_queue_count, get_queue_count
+        pending_comments = get_comment_queue_count()
+        pending_users = get_queue_count()
+    except Exception:
+        pass
 
-    # Display columns
-    console.print(Columns([sys_panel, storage_panel], expand=True))
+    storage_table = Table(box=None, padding=(0, 1), show_header=False)
+    storage_table.add_row(em(":floppy_disk: SQLite DB:"), f"[white]{db_size}[/white]")
+    storage_table.add_row(em(":key: Saved Sessions:"), f"[bold green]{sessions_count} accounts[/bold green]")
+    storage_table.add_row(em(":speech_balloon: Comments Queue:"), f"[bold yellow]{pending_comments} pending[/bold yellow]")
+    storage_table.add_row(em(":busts_in_silhouette: Users Queue:"), f"[bold magenta]{pending_users} pending[/bold magenta]")
+    storage_panel = Panel(
+        storage_table,
+        title=em("[bold green]:floppy_disk: Database & Storage[/bold green]"),
+        border_style="green",
+        box=box.ROUNDED
+    )
+
+    # 3. Security & Safety Rules Card
+    safety_table = Table(box=None, padding=(0, 1), show_header=False)
+    base_delays = get_delay_range()
+    safety_table.add_row(em(":hourglass: Base API Delay:"), f"[yellow]{base_delays[0]}-{base_delays[1]}s[/yellow]")
+    safety_table.add_row(em(":lock: 2FA & Challenge:"), "[bold cyan]Automated Prompt[/bold cyan]")
+    safety_table.add_row(em(":shield: Anti-Ban Jitter:"), "[bold #00ffaa]Active & Random[/bold #00ffaa]")
+    safety_table.add_row(em(":wastebasket: Duplicate Filter:"), "[bold white]Zero Redundancy[/bold white]")
+    safety_panel = Panel(
+        safety_table,
+        title=em("[bold magenta]:shield: Security & Rules[/bold magenta]"),
+        border_style="magenta",
+        box=box.ROUNDED
+    )
+
+    # Display 3-card columns
+    console.print(Columns([engine_panel, storage_panel, safety_panel], expand=True))
     console.print()
 
 def show_markdown(text: str):
@@ -409,17 +473,33 @@ def log_sleep(seconds: int, message: str = "Sleeping for safety / cooldown", _st
             time.sleep(frac)
 
 def show_banner(title: str, subtitle: str = ""):
-    """Displays a stylized Rich banner for CLI start using Rich emoji markup and rounded borders."""
-    text_content = em(f":robot: [bold bright_cyan]{title}[/bold bright_cyan]\n")
+    """Displays a stylized Rich banner for CLI start using Rich emoji markup, Instagram gradient ASCII logo, and rounded borders."""
+    logo_art = (
+        "[bold #f09433]  ___ _  _ ___ _____ _   ___  ___ _____ [/bold #f09433]\n"
+        "[bold #e6683c] |_ _| \\| / __|_   _/_\\ | _ )/ _ \\_   _|[/bold #e6683c]\n"
+        "[bold #dc2743]  | || .` \\__ \\ | |/ _ \\| _ \\ (_) || |  [/bold #dc2743]\n"
+        "[bold #cc2366] |___|_|\\_|___/ |_/_/ \\_\\___/\\___/ |_|  [/bold #cc2366]\n"
+        "[bold #bc1888]   INSTAGRAM AUTOMATION & ENGAGEMENT ENGINE   [/bold #bc1888]"
+    )
+    badges = (
+        "[on #e1306c bold white] INSTAGRAM CLI [/] "
+        "[on #833ab4 bold white] v0.2.0 [/] "
+        "[on #00c0ff bold black] HTTP/2 CAA [/] "
+        "[on #10b981 bold black] SQLITE QUEUE [/]"
+    )
+    content = f"{logo_art}\n\n{badges}\n\n[bold white]:sparkles: {title} :sparkles:[/bold white]"
     if subtitle:
-        text_content += em(f"[dim bright_white]:sparkles: {subtitle}[/dim bright_white]\n")
-    console.print(Panel(
-        Text.from_markup(text_content.strip()),
+        content += f"\n[dim bright_white]{subtitle}[/dim bright_white]"
+
+    console.print()
+    console.print(Align.center(Panel(
+        Align.center(Text.from_markup(em(content))),
         box=box.ROUNDED,
-        border_style="bright_blue",
-        padding=(1, 2),
+        border_style="magenta",
+        padding=(1, 4),
         expand=False
-    ))
+    )))
+    console.print()
     try:
         get_file_logger().info(f"=== {title} ({subtitle}) ===")
     except Exception:
@@ -432,26 +512,48 @@ def show_section_divider(title: str = "", style: str = "bold magenta"):
     else:
         console.print(Rule(style=style))
 
-def show_stats_card(title: str, stats: dict, border_style: str = "cyan"):
-    """
-    Renders a sleek summary statistics card with Rich box borders and emojis.
-    """
+def show_session_plan(title: str, plan: dict):
+    """Renders a sleek execution plan card showing chosen parameters before starting a bot loop."""
     grid = Table.grid(padding=(0, 2))
-    grid.add_column(style="bold white", justify="left")
+    grid.add_column(style="bold cyan", justify="left")
     grid.add_column(style="bold yellow", justify="right")
 
-    for k, v in stats.items():
-        grid.add_row(em(k), em(str(v)))
+    for k, v in plan.items():
+        grid.add_row(em(f":small_blue_diamond: {k}"), em(str(v)))
 
     panel = Panel(
         grid,
-        title=em(f":bar_chart: [bold]{title}[/bold]"),
+        title=em(f":gear: [bold bright_white]{title}[/bold bright_white]"),
         box=box.ROUNDED,
-        border_style=border_style,
-        padding=(1, 2),
+        border_style="bold bright_cyan",
+        padding=(1, 3),
         expand=False
     )
-    console.print(panel)
+    console.print()
+    console.print(Align.center(panel))
+    console.print()
+
+def show_stats_card(title: str, stats: dict, border_style: str = "bold green"):
+    """
+    Renders an executive summary KPI card with Rich box borders and emojis.
+    """
+    table = Table(
+        title=em(f":bar_chart: [bold white]{title}[/bold white]"),
+        box=box.ROUNDED,
+        border_style=border_style,
+        show_header=True,
+        header_style="bold magenta",
+        padding=(0, 2)
+    )
+    table.add_column(em(":pushpin: Metric / Action"), style="bold white")
+    table.add_column(em(":chart_with_upwards_trend: Value / Count"), justify="right", style="bold bright_yellow")
+
+    for k, v in stats.items():
+        table.add_row(em(str(k)), em(str(v)))
+
+    console.print()
+    console.print(Align.center(table))
+    console.print()
 
 def show_user_table(users: list, title: str = "Target Users"):
     """Renders a Rich table of Instagram users with Rich emoji icons and rounded borders."""
@@ -459,23 +561,26 @@ def show_user_table(users: list, title: str = "Target Users"):
         title=em(f":clipboard: [bold cyan]{title}[/bold cyan] ([bold yellow]{len(users)}[/bold yellow] users)"),
         box=box.ROUNDED,
         border_style="cyan",
-        header_style="bold magenta"
+        header_style="bold magenta",
+        row_styles=["", "dim"]
     )
     table.add_column(em(":hash: #"), justify="center", style="cyan", no_wrap=True, width=5)
     table.add_column(em(":id: User ID (PK)"), style="yellow", justify="center")
     table.add_column(em(":bust_in_silhouette: Username"), style="bold green")
     table.add_column(em(":name_badge: Full Name"), style="white")
-    table.add_column(em(":lock: Privacy"), justify="center")
+    table.add_column(em(":lock: Privacy"), justify="center", width=14)
 
     for i, user in enumerate(users, start=1):
         uid = str(getattr(user, 'pk', '-'))
         uname = str(getattr(user, 'username', '-'))
         fname = str(getattr(user, 'full_name', '-'))
         is_priv = getattr(user, 'is_private', False)
-        privacy = em("[red]:lock: Private[/red]") if is_priv else em("[green]:globe_with_meridians: Public[/green]")
+        privacy = em("[bold white on red] PRIVATE [/bold white on red]") if is_priv else em("[bold white on green] PUBLIC [/bold white on green]")
         table.add_row(str(i), uid, f"@{uname}", fname if fname else "[dim]-[/dim]", privacy)
 
+    console.print()
     console.print(table)
+    console.print()
 
 def show_comment_table(comments: list, title: str = "Target Unliked Comments", max_display: int = 50):
     """Renders a Rich table of comments extracted from target posts with status icons and privacy badges."""
@@ -484,37 +589,42 @@ def show_comment_table(comments: list, title: str = "Target Unliked Comments", m
         title=em(f":speech_balloon: [bold cyan]{title}[/bold cyan] ([bold yellow]{len(comments)}[/bold yellow] comments total)"),
         box=box.ROUNDED,
         border_style="cyan",
-        header_style="bold magenta"
+        header_style="bold magenta",
+        row_styles=["", "dim"]
     )
     table.add_column(em(":hash: #"), justify="center", style="cyan", no_wrap=True, width=5)
     table.add_column(em(":bust_in_silhouette: Author"), style="bold green")
-    table.add_column(em(":shield: Privacy"), justify="center", width=12)
-    table.add_column(em(":speech_balloon: Comment Text"), style="white", max_width=40)
-    table.add_column(em(":heart: Likes"), justify="center", style="magenta", width=8)
-    table.add_column(em(":sparkles: Status"), justify="center")
+    table.add_column(em(":shield: Privacy"), justify="center", width=14)
+    table.add_column(em(":speech_balloon: Comment Text"), style="white", max_width=42)
+    table.add_column(em(":heart: Likes"), justify="center", style="bold magenta", width=9)
+    table.add_column(em(":sparkles: Status"), justify="center", width=16)
 
     for i, c in enumerate(display_list, start=1):
         user = getattr(c, 'user', None)
         uname = str(getattr(user, 'username', '') if user else getattr(c, 'author_username', '-'))
         is_priv = bool(getattr(c, 'is_private', False) or (getattr(user, 'is_private', False) if user else False))
-        privacy = em("[red]:lock: Private[/red]") if is_priv else em("[green]:globe_with_meridians: Public[/green]")
+        privacy = em("[bold white on red] PRIVATE [/bold white on red]") if is_priv else em("[bold white on green] PUBLIC [/bold white on green]")
         text = str(getattr(c, 'text', '')).strip().replace("\n", " ")
         if len(text) > 42:
             text = text[:39] + "..."
-        likes = str(getattr(c, 'like_count', 0))
-        status = em("[bold green]:sparkles: Ready to Like[/bold green]")
+        likes_count = getattr(c, 'like_count', 0)
+        likes = em(f"[bold #ec4899]❤ {likes_count}[/bold #ec4899]")
+        status = em("[bold #00ffaa]:sparkles: Ready to Like[/bold #00ffaa]")
         table.add_row(str(i), f"@{uname}", privacy, text if text else "[dim]-[/dim]", likes, status)
 
+    console.print()
     console.print(table)
     if len(comments) > max_display:
-        console.print(em(f"[dim]... and [bold yellow]{len(comments) - max_display}[/bold yellow] more comments queued in SQLite.[/dim]"))
+        console.print(em(f"[dim]... and [bold yellow]{len(comments) - max_display}[/bold yellow] more comments queued in SQLite database.[/dim]"))
+    console.print()
 
 
 
 def ask_int(english_question: str, default: int = 1, min_val: int = -1) -> int:
     import questionary
+    kwargs = {"style": QUESTIONARY_STYLE} if QUESTIONARY_STYLE else {}
     while True:
-        val = questionary.text(f"{english_question} (default: {default})").ask()
+        val = questionary.text(f"{english_question} (default: {default})", **kwargs).ask()
         if val is None:
             return default
         val = val.strip()

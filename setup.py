@@ -118,12 +118,11 @@ def setup_database():
 
 def check_dependencies():
     """Verify essential dependencies and version alignments."""
-    print_step("Checking required packages (instagrapi 3.0+ compatibility)")
+    print_step("Checking required packages (instagrapi 3.0+ & Rich 14+ compatibility)")
     required = [
         ("instagrapi", "instagrapi>=3.0.16"),
-        ("curl_cffi", "curl_cffi>=0.15.0"),
-        ("questionary", "questionary>=2.0.1"),
-        ("rich", "rich>=13.7.1"),
+        ("questionary", "questionary>=2.1.0"),
+        ("rich", "rich>=14.0.0"),
     ]
     missing = []
     for mod_name, pkg_name in required:

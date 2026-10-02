@@ -35,9 +35,13 @@ def get_file_logger() -> logging.Logger:
     return _file_logger
 
 def clean_rich_markup(text: str) -> str:
-    """Strips Rich console tags and emojis for clean file logging."""
+    """Strips Rich console tags and markup for clean file logging."""
     if not isinstance(text, str):
         text = str(text)
-    clean = re.sub(r'\[/?[a-zA-Z0-9_\s#]+\]', '', text)
-    clean = re.sub(r':[a-zA-Z0-9_+-]+:', '', clean).strip()
-    return clean
+    try:
+        from rich.text import Text
+        plain = Text.from_markup(text).plain
+    except Exception:
+        plain = re.sub(r'\[/?[a-zA-Z0-9_\s#]+\]', '', text)
+    # Clean emoji shortcodes if any remain
+    return re.sub(r':[a-zA-Z0-9_+-]+:', '', plain).strip()

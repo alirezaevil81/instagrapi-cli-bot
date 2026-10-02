@@ -42,7 +42,8 @@ from src.utils import (
     ask_delay_range,
     ask_choice_or_custom,
     register_graceful_shutdown,
-    em
+    em,
+    QUESTIONARY_STYLE
 )
 
 def main():
@@ -73,9 +74,11 @@ def main():
         users = get_pending_target_users()
         log_success(f"Loaded [bold cyan]{len(users)}[/bold cyan] target users from SQLite database queue.")
     else:
+        kwargs = {"style": QUESTIONARY_STYLE} if QUESTIONARY_STYLE else {}
         posts_raw = questionary.text(
             "Enter target post URLs (separated by comma):",
-            validate=lambda val: True if len(val.strip()) > 0 else "Please provide at least one post URL"
+            validate=lambda val: True if len(val.strip()) > 0 else "Please provide at least one post URL",
+            **kwargs
         ).ask()
 
         if not posts_raw:

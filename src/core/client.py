@@ -53,16 +53,19 @@ from src.utils.console import (
     log_error,
     log_warning,
     console,
-    em
+    em,
+    QUESTIONARY_STYLE
 )
 
 def default_challenge_code_handler(username: str, choice_method=None) -> str:
     """Handles Instagram security challenge code input interactively."""
     method_name = "SMS" if choice_method == 0 else "Email" if choice_method == 1 else "Security Code"
     log_warning(f"Instagram security challenge triggered for @{username} via {method_name}. :lock:")
+    kwargs = {"style": QUESTIONARY_STYLE} if QUESTIONARY_STYLE else {}
     code = questionary.text(
         f"Enter the verification code sent to your {method_name}:",
-        validate=lambda val: True if len(val.strip()) > 0 else "Verification code cannot be empty"
+        validate=lambda val: True if len(val.strip()) > 0 else "Verification code cannot be empty",
+        **kwargs
     ).ask()
     return (code or "").strip()
 
@@ -214,9 +217,11 @@ class Bot(Client):
                     )
                 )
 
+                kwargs = {"style": QUESTIONARY_STYLE} if QUESTIONARY_STYLE else {}
                 selected = questionary.select(
                     em("Select an Instagram account / session to login:"),
-                    choices=choices
+                    choices=choices,
+                    **kwargs
                 ).ask()
 
                 if not selected or selected == "__exit__":
@@ -225,7 +230,8 @@ class Bot(Client):
                 elif selected == "__sessionid__":
                     sessionid_val = questionary.password(
                         "Paste your Instagram SessionID cookie value:",
-                        validate=lambda val: True if len(val.strip()) > 0 else "SessionID cannot be empty"
+                        validate=lambda val: True if len(val.strip()) > 0 else "SessionID cannot be empty",
+                        **kwargs
                     ).ask()
                     if not sessionid_val:
                         log_warning("SessionID login canceled.")
@@ -233,7 +239,8 @@ class Bot(Client):
 
                     uname_for_sid = questionary.text(
                         "Enter the Username for this SessionID:",
-                        validate=lambda val: True if len(val.strip()) > 0 else "Username cannot be empty"
+                        validate=lambda val: True if len(val.strip()) > 0 else "Username cannot be empty",
+                        **kwargs
                     ).ask()
                     if not uname_for_sid:
                         log_warning("Login canceled.")
@@ -258,7 +265,8 @@ class Bot(Client):
                 elif selected == "__new__":
                     username = questionary.text(
                         "Enter your Instagram Username:",
-                        validate=lambda val: True if len(val.strip()) > 0 else "Username cannot be empty"
+                        validate=lambda val: True if len(val.strip()) > 0 else "Username cannot be empty",
+                        **kwargs
                     ).ask()
                     if not username:
                         log_warning("Login canceled.")
@@ -269,6 +277,7 @@ class Bot(Client):
                     username = selected.strip()
                     login_via_session = True
             else:
+                kwargs = {"style": QUESTIONARY_STYLE} if QUESTIONARY_STYLE else {}
                 login_method = questionary.select(
                     em("Select login method:"),
                     choices=[
@@ -284,7 +293,8 @@ class Bot(Client):
                             title=em(":door: Exit"),
                             value="exit"
                         ),
-                    ]
+                    ],
+                    **kwargs
                 ).ask()
 
                 if not login_method or login_method == "exit":
@@ -294,14 +304,16 @@ class Bot(Client):
                 if login_method == "sessionid":
                     sessionid_val = questionary.password(
                         "Paste your Instagram SessionID cookie value:",
-                        validate=lambda val: True if len(val.strip()) > 0 else "SessionID cannot be empty"
+                        validate=lambda val: True if len(val.strip()) > 0 else "SessionID cannot be empty",
+                        **kwargs
                     ).ask()
                     if not sessionid_val:
                         log_warning("Login canceled.")
                         continue
                     uname_for_sid = questionary.text(
                         "Enter your Instagram Username:",
-                        validate=lambda val: True if len(val.strip()) > 0 else "Username cannot be empty"
+                        validate=lambda val: True if len(val.strip()) > 0 else "Username cannot be empty",
+                        **kwargs
                     ).ask()
                     if not uname_for_sid:
                         log_warning("Login canceled.")
@@ -324,7 +336,8 @@ class Bot(Client):
 
                 username = questionary.text(
                     "Enter your Instagram Username:",
-                    validate=lambda val: True if len(val.strip()) > 0 else "Username cannot be empty"
+                    validate=lambda val: True if len(val.strip()) > 0 else "Username cannot be empty",
+                    **kwargs
                 ).ask()
 
                 if not username:
@@ -361,9 +374,11 @@ class Bot(Client):
                     break
 
             if not login_via_session:
+                kwargs = {"style": QUESTIONARY_STYLE} if QUESTIONARY_STYLE else {}
                 password = questionary.password(
                     f"Enter password for @{username}:",
-                    validate=lambda val: True if len(val.strip()) > 0 else "Password cannot be empty"
+                    validate=lambda val: True if len(val.strip()) > 0 else "Password cannot be empty",
+                    **kwargs
                 ).ask()
 
                 if not password:
@@ -378,7 +393,8 @@ class Bot(Client):
                     log_warning(f"Two-Factor Authentication (2FA) required for @{username} :lock:")
                     two_factor_code = questionary.text(
                         "Enter your 6-digit 2FA / Authentication Code:",
-                        validate=lambda val: True if len(val.strip()) > 0 else "2FA code cannot be empty"
+                        validate=lambda val: True if len(val.strip()) > 0 else "2FA code cannot be empty",
+                        **kwargs
                     ).ask()
 
                     if not two_factor_code:

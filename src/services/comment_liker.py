@@ -35,6 +35,7 @@ from src.utils import (
     show_comment_table,
     show_section_divider,
     show_stats_card,
+    show_session_plan,
     console,
     log_print,
     log_success,
@@ -46,7 +47,8 @@ from src.utils import (
     ask_choice_or_custom,
     ask_int,
     register_graceful_shutdown,
-    em
+    em,
+    QUESTIONARY_STYLE
 )
 
 
@@ -193,9 +195,11 @@ def main():
         comments_queue = get_pending_target_comments()
         log_success(f"Loaded [bold cyan]{len(comments_queue)}[/bold cyan] unliked comments from SQLite database queue.")
     else:
+        kwargs = {"style": QUESTIONARY_STYLE} if QUESTIONARY_STYLE else {}
         posts_raw = questionary.text(
             "Enter target post URLs or PKs (separated by comma):",
-            validate=lambda val: True if len(val.strip()) > 0 else "Please provide at least one post URL"
+            validate=lambda val: True if len(val.strip()) > 0 else "Please provide at least one post URL",
+            **kwargs
         ).ask()
 
         if not posts_raw:
@@ -259,12 +263,14 @@ def main():
     )
 
     # Ordering
+    kwargs = {"style": QUESTIONARY_STYLE} if QUESTIONARY_STYLE else {}
     order_choice = questionary.select(
         em("Select comment liking order:"),
         choices=[
             questionary.Choice(title=em(":arrow_right: Oldest to Newest (Chronological order)"), value="asc"),
             questionary.Choice(title=em(":fast_forward: Newest to Oldest (Recent comments first)"), value="desc"),
-        ]
+        ],
+        **kwargs
     ).ask()
 
     if order_choice == "desc":
@@ -339,8 +345,20 @@ def main():
     if enable_warmup:
         cl.perform_warmup_actions(max_feed_items=3, view_stories=True)
 
+    # Display Pre-Flight Session Plan Card
+    session_plan = {
+        "Target Comments to Like": f"{len(comments_to_process)} unliked comments (0 likes)",
+        "Liking Order": "Oldest to Newest (Chronological)" if order_choice == "asc" else "Newest to Oldest (Recent first)",
+        "Comment Like Delay": f"{like_delay_range[0]} - {like_delay_range[1]} seconds",
+        "Commenter Post Likes": f"Enabled ({posts_per_author} posts, {author_post_delay_range[0]}-{author_post_delay_range[1]}s delay)" if like_author_posts else "[red]Disabled[/red]",
+        "Commenter Story Engagement": f"Enabled (Seen -> Like, {story_like_delay_range[0]}-{story_like_delay_range[1]}s delay)" if interact_with_latest_story else "[red]Disabled[/red]",
+        "Batch Resting Pause": f"Every {rest_every} likes" if rest_every > 0 else "Continuous",
+        "Account Warm-up": "Completed" if enable_warmup else "Skipped",
+    }
+    show_session_plan("Pre-Flight Engagement Mission Plan", session_plan)
+
     # ----------------- Engagement Loop -----------------
-    console.print(f"\n[bold green]:rocket: Starting automated comment likes for {len(comments_to_process)} comments...[/bold green]\n")
+    console.print(f"\n[bold green]:rocket: Starting automated engagement loop for {len(comments_to_process)} comments...[/bold green]\n")
     processed_comments_count = 0
     author_posts_liked_count = 0
     stories_seen_count = 0
