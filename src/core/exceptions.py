@@ -42,3 +42,15 @@ ClientThrottledError = _get_exc("ClientThrottledError")
 ClientNotFoundError = _get_exc("ClientNotFoundError")
 ClientJSONDecodeError = _get_exc("ClientJSONDecodeError")
 ProxyAddressIsBlocked = _get_exc("ProxyAddressIsBlocked")
+
+def is_network_error(exc: Exception) -> bool:
+    """Detects if an exception is caused by DNS resolution failure, connection drop, timeout, or proxy error."""
+    if not isinstance(exc, Exception):
+        return False
+    exc_name = exc.__class__.__name__.lower()
+    exc_str = str(exc).lower()
+    keywords = [
+        "dns", "resolve", "connection", "connect", "timeout", "proxy",
+        "ssl", "transport", "network", "unreachable", "handshake"
+    ]
+    return any(k in exc_name or k in exc_str for k in keywords)

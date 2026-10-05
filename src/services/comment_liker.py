@@ -17,7 +17,8 @@ from src.core.exceptions import (
     PleaseWaitFewMinutes,
     ClientLoginRequired,
     LoginRequired,
-    ClientError
+    ClientError,
+    is_network_error
 )
 from src.core.client import Bot
 from src.database import (
@@ -48,8 +49,11 @@ from src.utils import (
     ask_int,
     register_graceful_shutdown,
     em,
-    QUESTIONARY_STYLE
+    QUESTIONARY_STYLE,
+    notify_task_completed,
+    handle_connection_recovery
 )
+from src.utils.config_memory import prompt_config_mode, save_bot_preferences
 
 
 def extract_comments_from_posts(
@@ -158,7 +162,13 @@ def extract_comments_from_posts(
             log_error(f"Instagram ClientError for post {post_str}: {ce}")
             continue
         except Exception as e:
-            log_error(f"Cannot fetch comments for post {post_str}: ", str(e))
+            if is_network_error(e):
+                log_error(f":satellite: Network/DNS error extracting comments for {post_str}: {e}")
+                if handle_connection_recovery(e, action_name=f"استخراج کامنت‌های پست {post_str}"):
+                    # Retry this post
+                    posts.insert(idx, post_str)
+            else:
+                log_error(f"Cannot fetch comments for post {post_str}: ", str(e))
             continue
 
     return unliked_comments
@@ -177,8 +187,14 @@ def main():
     cl.start()
 
     if not getattr(cl, 'user_id', None):
-        log_warning("Not logged in. Exiting.")
-        sys.exit(0)
+        log_warning("Not logged in. Returning to main menu.")
+        return
+
+    # ----------------- Smart Memory Check -----------------
+    config_mode, saved_pref = prompt_config_mode("Post Comments Liker", "comment_liker")
+    if config_mode == "back":
+        log_print("Returning to main menu... :back:")
+        return
 
     # ----------------- Comment Queue / SQLite Database Handling -----------------
     pending_count = get_comment_queue_count()
@@ -197,14 +213,14 @@ def main():
     else:
         kwargs = {"style": QUESTIONARY_STYLE} if QUESTIONARY_STYLE else {}
         posts_raw = questionary.text(
-            "Enter target post URLs or PKs (separated by comma):",
+            "Enter target post URLs or PKs (separated by comma, or 'back' to return):",
             validate=lambda val: True if len(val.strip()) > 0 else "Please provide at least one post URL",
             **kwargs
         ).ask()
 
-        if not posts_raw:
-            log_warning("No post URLs provided. Exiting.")
-            sys.exit(0)
+        if not posts_raw or posts_raw.strip().lower() in ["back", "0", "exit", "b"]:
+            log_warning("Returning to main menu.")
+            return
 
         posts = [p.strip() for p in posts_raw.split(",") if p.strip()]
 
@@ -222,16 +238,26 @@ def main():
             val_type=int
         )
 
-        skip_own_comments = ask_yes_no(
-            "Skip liking comments made by your own account?",
-            default=True
-        )
+        # Checkbox for extraction filters
+        extract_filters = questionary.checkbox(
+            em("Select comment extraction filters: (Space to toggle, Enter to confirm)"),
+            choices=[
+                questionary.Choice(
+                    title=em(":white_check_mark: 0-Likes Only (فقط کامنت‌های بدون لایک)"),
+                    value="zero_likes",
+                    checked=True
+                ),
+                questionary.Choice(
+                    title=em(":shield: Skip Own Comments (رد کردن کامنت‌های پیج خودتان)"),
+                    value="skip_own",
+                    checked=True
+                ),
+            ],
+            **kwargs
+        ).ask() or ["zero_likes", "skip_own"]
 
-        # Explicit 0-like condition as requested
-        filter_zero_likes = ask_yes_no(
-            "Only extract comments with exactly 0 likes (unliked by anyone)?",
-            default=True
-        )
+        filter_zero_likes = "zero_likes" in extract_filters
+        skip_own_comments = "skip_own" in extract_filters
 
         # Extract comments
         comments_queue = extract_comments_from_posts(
@@ -244,7 +270,7 @@ def main():
 
         if not comments_queue:
             log_warning("No unliked comments found from the specified posts.")
-            sys.exit(0)
+            return
 
         # Save extracted comments into SQLite queue
         saved_count = save_target_comments_queue(comments_queue, clear_existing=True)
@@ -253,75 +279,140 @@ def main():
     # ----------------- Display Comments Table -----------------
     show_comment_table(comments_queue, title="Target 0-Like Comments Queue (SQLite)")
 
-    # ----------- Interactive Configuration (Questionary) --------------
-    console.print("\n[bold cyan]:gear: Configure Bot Engagement Parameters[/bold cyan]")
+    # ----------- Configuration: Quick vs Custom --------------
+    if config_mode == "quick" and saved_pref:
+        like_comments = saved_pref.get("like_comments", True)
+        interact_with_latest_story = saved_pref.get("interact_story", True)
+        like_author_posts = saved_pref.get("like_author_posts", False)
+        enable_warmup = saved_pref.get("enable_warmup", True)
+        order_choice = saved_pref.get("order_choice", "asc")
+        like_delay_range = saved_pref.get("like_delay_range", [25, 45])
+        posts_per_author = saved_pref.get("posts_per_author", 2)
+        author_post_delay_range = saved_pref.get("author_post_delay_range", [15, 30])
+        story_like_delay_range = saved_pref.get("story_like_delay_range", [15, 30])
+        max_likes_total = saved_pref.get("max_likes_total", -1)
+        rest_every = saved_pref.get("rest_every", 10)
+        log_success("Loaded saved preferences for 1-click execution! :rocket:")
+    else:
+        console.print("\n[bold cyan]:gear: Configure Bot Engagement Modules & Parameters[/bold cyan]")
 
-    # Warm-up option (Selectable Yes/No)
-    enable_warmup = ask_yes_no(
-        "Perform natural account warm-up actions before starting?",
-        default=True
-    )
-
-    # Ordering
-    kwargs = {"style": QUESTIONARY_STYLE} if QUESTIONARY_STYLE else {}
-    order_choice = questionary.select(
-        em("Select comment liking order:"),
-        choices=[
-            questionary.Choice(title=em(":arrow_right: Oldest to Newest (Chronological order)"), value="asc"),
-            questionary.Choice(title=em(":fast_forward: Newest to Oldest (Recent comments first)"), value="desc"),
-        ],
-        **kwargs
-    ).ask()
-
-    if order_choice == "desc":
-        comments_queue = list(reversed(comments_queue))
-
-    # Delay range between comment likes
-    like_delay_range = ask_delay_range("comment likes", default_range=[25, 45])
-
-    # ----------------- OPTIONAL FEATURE 1: Liking Commenter's Recent Posts -----------------
-    like_author_posts = ask_yes_no(
-        "After liking the comment, also like recent posts of the commenter?",
-        default=False
-    )
-    posts_per_author = 2
-    author_post_delay_range = [15, 30]
-    if like_author_posts:
-        log_print("Commenter Post Liking is [bold green]ENABLED[/bold green] :camera: :heart:")
-        posts_per_author = ask_choice_or_custom(
-            english_title="Select number of recent posts to like per commenter",
-            options=[
-                (1, "1 post", "Quick & Safe", ":zap:"),
-                (2, "2 posts", "Recommended & Balanced", ":shield:"),
-                (3, "3 posts", "Thorough Engagement", ":mag:"),
-                (5, "5 posts", "Deep Engagement", ":star:"),
+        kwargs = {"style": QUESTIONARY_STYLE} if QUESTIONARY_STYLE else {}
+        selected_actions = questionary.checkbox(
+            em("Select interaction actions to perform: (Space to toggle, Enter to confirm)"),
+            choices=[
+                questionary.Choice(
+                    title=em(":heart: Like Target Comments (لایک کامنت‌های استخراج‌شده)"),
+                    value="like_comments",
+                    checked=True
+                ),
+                questionary.Choice(
+                    title=em(":clapper: View & Like Commenter's Latest Story (تماشا و لایک آخرین استوری کامنت‌گذار)"),
+                    value="interact_story",
+                    checked=True
+                ),
+                questionary.Choice(
+                    title=em(":camera: Like Commenter's Recent Posts (لایک پست‌های اخیر کامنت‌گذار)"),
+                    value="like_author_posts",
+                    checked=False
+                ),
+                questionary.Choice(
+                    title=em(":zap: Account Warm-up (گرم کردن طبیعی اکانت قبل از شروع)"),
+                    value="warmup",
+                    checked=True
+                ),
             ],
-            default_val=2,
-            custom_prompt_en="Enter custom number of posts to like per commenter",
+            **kwargs
+        ).ask()
+
+        if selected_actions is None:
+            log_warning("Operation cancelled by user.")
+            return
+
+        like_comments = "like_comments" in selected_actions
+        interact_with_latest_story = "interact_story" in selected_actions
+        like_author_posts = "like_author_posts" in selected_actions
+        enable_warmup = "warmup" in selected_actions
+
+        # Ordering
+        order_choice = questionary.select(
+            em("Select comment processing order:"),
+            choices=[
+                questionary.Choice(title=em(":arrow_right: Oldest to Newest (Chronological order)"), value="asc"),
+                questionary.Choice(title=em(":fast_forward: Newest to Oldest (Recent comments first)"), value="desc"),
+            ],
+            **kwargs
+        ).ask() or "asc"
+
+        # Delay range between comment likes
+        like_delay_range = [25, 45]
+        if like_comments:
+            like_delay_range = ask_delay_range("comment likes", default_range=[25, 45])
+
+        # ----------------- Commenter's Recent Posts Configuration -----------------
+        posts_per_author = 2
+        author_post_delay_range = [15, 30]
+        if like_author_posts:
+            log_print("Commenter Post Liking is [bold green]ENABLED[/bold green] :camera: :heart:")
+            posts_per_author = ask_choice_or_custom(
+                english_title="Select number of recent posts to like per commenter",
+                options=[
+                    (1, "1 post", "Quick & Safe", ":zap:"),
+                    (2, "2 posts", "Recommended & Balanced", ":shield:"),
+                    (3, "3 posts", "Thorough Engagement", ":mag:"),
+                    (5, "5 posts", "Deep Engagement", ":star:"),
+                ],
+                default_val=2,
+                custom_prompt_en="Enter custom number of posts to like per commenter",
+                val_type=int
+            )
+            author_post_delay_range = ask_delay_range("commenter post likes", default_range=[15, 30])
+        else:
+            log_print("Commenter Post Liking is [bold red]DISABLED[/bold red] :cross_mark:")
+
+        # ----------------- Commenter's Latest Story Configuration -----------------
+        story_like_delay_range = [15, 30]
+        if interact_with_latest_story:
+            log_print("Commenter Latest Story Interaction is [bold green]ENABLED[/bold green] (Seen -> Like) :clapper: :heart:")
+            story_like_delay_range = ask_delay_range("story like cooldown", default_range=[15, 30])
+        else:
+            log_print("Commenter Latest Story Interaction is [bold red]DISABLED[/bold red] :cross_mark:")
+
+        # Maximum comments to like in this session
+        max_likes_total = ask_int(
+            f"How many unliked comments do you want to like in this session? (-1 for all {len(comments_queue)})",
+            default=-1,
+            min_val=-1
+        )
+
+        # Optional batch rest pause
+        rest_every = ask_choice_or_custom(
+            english_title="Take an extra resting pause after every N comment likes",
+            options=[
+                (10, "Every 10 likes (Rest 2-3 mins)", "Recommended & Safe", ":shield:"),
+                (25, "Every 25 likes (Rest 4-5 mins)", "Standard", ":hourglass:"),
+                (50, "Every 50 likes (Rest 5-8 mins)", "Long Batches", ":sleeping:"),
+                (0, "No extra batch pause", "Continuous", ":zap:"),
+            ],
+            default_val=10,
+            custom_prompt_en="Enter custom batch size for rest pause (0 to disable)",
             val_type=int
         )
-        author_post_delay_range = ask_delay_range("commenter post likes", default_range=[15, 30])
-    else:
-        log_print("Commenter Post Liking is [bold red]DISABLED[/bold red] :cross_mark:")
 
-    # ----------------- OPTIONAL FEATURE 2: Viewing & Liking Commenter's Latest Story -----------------
-    interact_with_latest_story = ask_yes_no(
-        "View and like the commenter's latest active story (first seen, then like)?",
-        default=False
-    )
-    story_like_delay_range = [15, 30]
-    if interact_with_latest_story:
-        log_print("Commenter Latest Story Interaction is [bold green]ENABLED[/bold green] (Seen -> Like) :clapper: :heart:")
-        story_like_delay_range = ask_delay_range("story like cooldown", default_range=[15, 30])
-    else:
-        log_print("Commenter Latest Story Interaction is [bold red]DISABLED[/bold red] :cross_mark:")
-
-    # Maximum comments to like in this session
-    max_likes_total = ask_int(
-        f"How many unliked comments do you want to like in this session? (-1 for all {len(comments_queue)})",
-        default=-1,
-        min_val=-1
-    )
+        # Save preferences for smart memory
+        save_bot_preferences("comment_liker", {
+            "like_comments": like_comments,
+            "interact_story": interact_with_latest_story,
+            "like_author_posts": like_author_posts,
+            "enable_warmup": enable_warmup,
+            "order_choice": order_choice,
+            "like_delay_range": like_delay_range,
+            "posts_per_author": posts_per_author,
+            "author_post_delay_range": author_post_delay_range,
+            "story_like_delay_range": story_like_delay_range,
+            "max_likes_total": max_likes_total,
+            "rest_every": rest_every,
+        })
+        log_success("Saved configuration to smart memory! :floppy_disk:")
     if max_likes_total != -1 and max_likes_total < len(comments_queue):
         comments_to_process = comments_queue[:max_likes_total]
     else:
@@ -384,15 +475,17 @@ def main():
             )
             log_print(f"Content: [italic white]\"{preview_text}\"[/italic white]")
 
-            # ----------------- 1. Like Comment -----------------
-            success = cl.like_comment(
-                comment_pk=c_pk,
-                delay_range=like_delay_range,
-                username=uname,
-                user_pk=upk,
-                media_pk=media_pk,
-                comment_text=text
-            )
+            # ----------------- 1. Like Comment (if enabled) -----------------
+            success = True
+            if like_comments:
+                success = cl.like_comment(
+                    comment_pk=c_pk,
+                    delay_range=like_delay_range,
+                    username=uname,
+                    user_pk=upk,
+                    media_pk=media_pk,
+                    comment_text=text
+                )
 
             if success:
                 processed_comments_count += 1
@@ -514,6 +607,10 @@ def main():
         border_style="magenta"
     )
     console.print("\n[bold blue]━━━━━━━━━━━━━━━━━━━━━━━━ :sparkles: All Done :sparkles: ━━━━━━━━━━━━━━━━━━━━━━━━[/bold blue]\n")
+    notify_task_completed(
+        "لایک‌کننده کامنت‌ها (Post Comments Liker)",
+        f"تعداد {processed_comments_count} کامنت لایک شد. زمان: {elapsed_str}."
+    )
 
 
 if __name__ == "__main__":

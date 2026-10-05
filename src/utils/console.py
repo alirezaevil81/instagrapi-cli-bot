@@ -278,16 +278,24 @@ def show_system_dashboard():
     from rich.table import Table
     import platform
     from src.config import DB_PATH, SESSIONS_DIR, get_delay_range
+    from src.utils.notifier import is_termux, has_termux_api
 
     # 1. Engine & Protocol Card
     engine_table = Table(box=None, padding=(0, 1), show_header=False)
-    engine_table.add_row(em(":desktop_computer: Platform:"), f"[white]{platform.system()} {platform.release()[:12]}[/white]")
+    if is_termux():
+        env_badge = "[bold yellow]Android (Termux)[/bold yellow]"
+        notif_badge = "[bold #00ffaa]● Termux:API Active[/bold #00ffaa]" if has_termux_api() else "[dim yellow]Termux (Standard Bell)[/dim yellow]"
+    else:
+        env_badge = f"[white]{platform.system()} {platform.release()[:10]}[/white]"
+        notif_badge = "[white]Terminal Bell Alert[/white]"
+
+    engine_table.add_row(em(":desktop_computer: Platform:"), env_badge)
+    engine_table.add_row(em(":bell: Alerts:"), notif_badge)
     engine_table.add_row(em(":zap: Engine:"), "[bold bright_cyan]instagrapi 3.0+[/bold bright_cyan]")
     engine_table.add_row(em(":shield: Transport:"), "[bold bright_green]curl_cffi (HTTP/2)[/bold bright_green]")
-    engine_table.add_row(em(":sparkles: Status:"), "[bold #00ffaa]● System Ready[/bold #00ffaa]")
     engine_panel = Panel(
         engine_table,
-        title=em("[bold cyan]:rocket: Core Engine & Protocol[/bold cyan]"),
+        title=em("[bold cyan]:rocket: Core Engine & System[/bold cyan]"),
         border_style="cyan",
         box=box.ROUNDED
     )

@@ -15,6 +15,7 @@ from src.utils import (
     show_banner,
     show_section_divider,
     show_stats_card,
+    show_session_plan,
     console,
     log_error,
     log_warning,
@@ -25,8 +26,12 @@ from src.utils import (
     ask_choice_or_custom,
     ask_int,
     register_graceful_shutdown,
-    em
+    em,
+    QUESTIONARY_STYLE,
+    notify_task_completed,
+    handle_connection_recovery
 )
+from src.utils.config_memory import prompt_config_mode, save_bot_preferences
 
 def main():
     init_db()
@@ -39,105 +44,182 @@ def main():
     bot.start()
 
     if not getattr(bot, 'user_id', None):
-        log_error("Not logged in. Exiting.")
-        sys.exit(0)
+        log_error("Not logged in. Returning to main menu.")
+        return
+
+    # ----------------- Smart Memory Check -----------------
+    config_mode, saved_pref = prompt_config_mode("Following Feed Liker", "followers_liker")
+    if config_mode == "back":
+        log_print("Returning to main menu... :back:")
+        return
 
     # ----------- Fetch Following List --------------
     followings = bot.get_all_self_following()
 
     if not followings:
         log_warning("No followings found or unable to fetch followings.")
-        sys.exit(0)
+        return
 
-    # ----------- Interactive Configuration (Questionary) --------------
-    console.print("\n[bold cyan]:gear: Configure Bot Parameters[/bold cyan]")
+    # ----------- Configuration: Quick vs Custom --------------
+    if config_mode == "quick" and saved_pref:
+        like_posts = saved_pref.get("like_posts", True)
+        story_interaction = saved_pref.get("interact_story", True)
+        commenting = saved_pref.get("commenting", False)
+        enable_warmup = saved_pref.get("enable_warmup", True)
+        posts_amount = saved_pref.get("posts_amount", 4)
+        bot.like_delay_range = saved_pref.get("like_delay_range", [60, 90])
+        bot.comment_delay_range = saved_pref.get("comment_delay_range", [60, 90])
+        bot.story_delay_range = saved_pref.get("story_delay_range", [30, 60])
+        sleep_after_iteration = saved_pref.get("sleep_after_iteration", 120)
+        sleep_after_loop = saved_pref.get("sleep_after_loop", 3600)
+        bot.story_view_count = -1 if story_interaction else 0
+        bot.story_like_count = 1 if story_interaction else 0
+        log_success("Loaded saved preferences for 1-click execution! :rocket:")
+    else:
+        console.print("\n[bold cyan]:gear: Configure Following Bot Modules & Parameters[/bold cyan]")
 
-    # Warm-up option (Selectable Yes/No)
-    enable_warmup = ask_yes_no(
-        "Perform natural account warm-up actions before starting?",
-        default=True
-    )
+        kwargs = {"style": QUESTIONARY_STYLE} if QUESTIONARY_STYLE else {}
+        selected_actions = questionary.checkbox(
+            em("Select interaction actions to perform for followings: (Space to toggle, Enter to confirm)"),
+            choices=[
+                questionary.Choice(
+                    title=em(":heart: Like Recent Posts (لایک پست‌های اخیر فالویینگ‌ها)"),
+                    value="like_posts",
+                    checked=True
+                ),
+                questionary.Choice(
+                    title=em(":clapper: View & Like Active Stories (تماشا و لایک استوری‌های فعال)"),
+                    value="interact_story",
+                    checked=True
+                ),
+                questionary.Choice(
+                    title=em(":speech_balloon: Comment on Recent Posts (ارسال کامنت خودکار روی پست‌ها)"),
+                    value="commenting",
+                    checked=False
+                ),
+                questionary.Choice(
+                    title=em(":zap: Account Warm-up (گرم کردن طبیعی اکانت قبل از شروع)"),
+                    value="warmup",
+                    checked=True
+                ),
+            ],
+            **kwargs
+        ).ask()
 
-    # Like delay configuration with presets
-    bot.like_delay_range = ask_delay_range("likes", default_range=[60, 90])
+        if selected_actions is None:
+            log_warning("Operation cancelled by user.")
+            return
 
-    # Posts to check per user (Presets + Custom)
-    posts_amount = ask_choice_or_custom(
-        english_title="Select number of recent posts to check per user",
-        options=[
-            (2, "2 posts", "Fast & Light", ":zap:"),
-            (4, "4 posts", "Recommended & Standard", ":shield:"),
-            (6, "6 posts", "Deeper Check", ":mag:"),
-            (10, "10 posts", "Thorough Check", ":star:"),
-        ],
-        default_val=4,
-        custom_prompt_en="Enter custom number of posts to check",
-        val_type=int
-    )
+        like_posts = "like_posts" in selected_actions
+        story_interaction = "interact_story" in selected_actions
+        commenting = "commenting" in selected_actions
+        enable_warmup = "warmup" in selected_actions
 
-    # Commenting toggle and delay (Selectable Yes/No)
-    commenting = ask_yes_no(
-        "Enable automated comments on posts?",
-        default=False
-    )
-    if commenting:
-        current_comments = load_comments()
-        if not current_comments:
-            log_warning(f"Notice: [bold yellow]{COMMENTS_FILE_PATH}[/bold yellow] is currently empty. Please write your custom comments into [bold yellow]{COMMENTS_FILE_PATH}[/bold yellow]! :warning:")
+        if not like_posts and not story_interaction and not commenting:
+            log_warning("No engagement actions selected. Enabling default post likes.")
+            like_posts = True
+
+        # Posts to check per user (Presets + Custom)
+        posts_amount = 4
+        if like_posts or commenting:
+            posts_amount = ask_choice_or_custom(
+                english_title="Select number of recent posts to check per user",
+                options=[
+                    (2, "2 posts", "Fast & Light", ":zap:"),
+                    (4, "4 posts", "Recommended & Standard", ":shield:"),
+                    (6, "6 posts", "Deeper Check", ":mag:"),
+                    (10, "10 posts", "Thorough Check", ":star:"),
+                ],
+                default_val=4,
+                custom_prompt_en="Enter custom number of posts to check",
+                val_type=int
+            )
+
+        # Like delay configuration with presets
+        if like_posts:
+            bot.like_delay_range = ask_delay_range("likes", default_range=[60, 90])
         else:
-            log_print(f"Automated commenting is [bold green]ENABLED[/bold green] ({len(current_comments)} comments loaded from [bold yellow]{COMMENTS_FILE_PATH}[/bold yellow]) :white_check_mark:")
-        bot.comment_delay_range = ask_delay_range("comments", default_range=[60, 90])
-    else:
-        log_print("Automated commenting is [bold red]DISABLED[/bold red] :cross_mark:")
+            bot.like_delay_range = [60, 90]
 
-    # Story Interaction
-    story_interaction = ask_yes_no(
-        "Enable automated story viewing & liking for followings with active stories?",
-        default=True
-    )
-    if story_interaction:
-        log_print("Automated Story Viewing & Liking is [bold green]ENABLED[/bold green] :clapper: :heart:")
-        bot.story_view_count = ask_int("How many recent stories do you want to VIEW? (-1 for all, 0 for none)", default=-1, min_val=-1)
-        bot.story_like_count = ask_int("How many recent stories do you want to LIKE? (-1 for all, 0 for none, 1 for last)", default=1, min_val=-1)
-        bot.story_delay_range = ask_delay_range("story like cooldown", default_range=[30, 60])
-    else:
-        log_print("Automated Story Interaction is [bold red]DISABLED[/bold red] :cross_mark:")
-        bot.story_view_count = 0
-        bot.story_like_count = 0
+        # Commenting configuration
+        if commenting:
+            current_comments = load_comments()
+            if not current_comments:
+                log_warning(f"Notice: [bold yellow]{COMMENTS_FILE_PATH}[/bold yellow] is currently empty. Please write your custom comments into [bold yellow]{COMMENTS_FILE_PATH}[/bold yellow]! :warning:")
+            else:
+                log_print(f"Automated commenting is [bold green]ENABLED[/bold green] ({len(current_comments)} comments loaded from [bold yellow]{COMMENTS_FILE_PATH}[/bold yellow]) :white_check_mark:")
+            bot.comment_delay_range = ask_delay_range("comments", default_range=[60, 90])
 
-    # Sleep after user with actions (Presets + Custom)
-    sleep_iter_min = ask_choice_or_custom(
-        english_title="Select cooldown after processing each user (minutes)",
-        options=[
-            (1, "1 minute", "Fast", ":zap:"),
-            (2, "2 minutes", "Recommended & Safe", ":shield:"),
-            (4, "4 minutes", "Conservative", ":hourglass:"),
-            (6, "6 minutes", "Long Rest", ":sleeping:"),
-        ],
-        default_val=2,
-        custom_prompt_en="Enter custom cooldown minutes after each user",
-        val_type=float
-    )
-    sleep_after_iteration = int(sleep_iter_min * 60)
+        # Story Interaction
+        if story_interaction:
+            log_print("Automated Story Viewing & Liking is [bold green]ENABLED[/bold green] :clapper: :heart:")
+            bot.story_view_count = -1
+            bot.story_like_count = 1
+            bot.story_delay_range = ask_delay_range("story like cooldown", default_range=[30, 60])
+        else:
+            bot.story_view_count = 0
+            bot.story_like_count = 0
 
-    # Sleep after full loop (Presets + Custom)
-    sleep_loop_hours = ask_choice_or_custom(
-        english_title="Select cooldown after completing a full round (hours)",
-        options=[
-            (0.5, "0.5 hour (30 mins)", "Half Hour", ":zap:"),
-            (1.0, "1.0 hour", "1 Hour (Recommended)", ":shield:"),
-            (2.0, "2.0 hours", "2 Hours (Safe)", ":hourglass:"),
-            (4.0, "4.0 hours", "4 Hours (Long)", ":sleeping:"),
-        ],
-        default_val=1.0,
-        custom_prompt_en="Enter custom cooldown hours after full loop",
-        val_type=float
-    )
-    sleep_after_loop = int(sleep_loop_hours * 3600)
+        # Sleep after user with actions (Presets + Custom)
+        sleep_iter_min = ask_choice_or_custom(
+            english_title="Select cooldown after processing each user (minutes)",
+            options=[
+                (1, "1 minute", "Fast", ":zap:"),
+                (2, "2 minutes", "Recommended & Safe", ":shield:"),
+                (4, "4 minutes", "Conservative", ":hourglass:"),
+                (6, "6 minutes", "Long Rest", ":sleeping:"),
+            ],
+            default_val=2,
+            custom_prompt_en="Enter custom cooldown minutes after each user",
+            val_type=float
+        )
+        sleep_after_iteration = int(sleep_iter_min * 60)
+
+        # Sleep after full loop (Presets + Custom)
+        sleep_loop_hours = ask_choice_or_custom(
+            english_title="Select cooldown after completing a full round (hours)",
+            options=[
+                (0.5, "0.5 hour (30 mins)", "Half Hour", ":zap:"),
+                (1.0, "1.0 hour", "1 Hour (Recommended)", ":shield:"),
+                (2.0, "2.0 hours", "2 Hours (Safe)", ":hourglass:"),
+                (4.0, "4.0 hours", "4 Hours (Long)", ":sleeping:"),
+            ],
+            default_val=1.0,
+            custom_prompt_en="Enter custom cooldown hours after full loop",
+            val_type=float
+        )
+        sleep_after_loop = int(sleep_loop_hours * 3600)
+
+        # Save preferences for smart memory
+        save_bot_preferences("followers_liker", {
+            "like_posts": like_posts,
+            "interact_story": story_interaction,
+            "commenting": commenting,
+            "enable_warmup": enable_warmup,
+            "posts_amount": posts_amount,
+            "like_delay_range": bot.like_delay_range,
+            "comment_delay_range": getattr(bot, 'comment_delay_range', [60, 90]),
+            "story_delay_range": getattr(bot, 'story_delay_range', [30, 60]),
+            "sleep_after_iteration": sleep_after_iteration,
+            "sleep_after_loop": sleep_after_loop,
+        })
+        log_success("Saved configuration to smart memory! :floppy_disk:")
 
     # Execute warm-up if enabled
     if enable_warmup:
         bot.perform_warmup_actions(max_feed_items=4, view_stories=True)
+
+    # Display Pre-Flight Mission Plan
+    session_plan = {
+        "Following Accounts to Process": f"{len(followings)} accounts",
+        "Post Likes": f"Enabled ({posts_amount} posts | {bot.like_delay_range[0]}-{bot.like_delay_range[1]}s)" if like_posts else "[red]Disabled[/red]",
+        "Automated Commenting": "Enabled" if commenting else "[red]Disabled[/red]",
+        "Story Interaction": f"Enabled (View: {bot.story_view_count}, Like: {bot.story_like_count})" if story_interaction else "[red]Disabled[/red]",
+        "User Cooldown": f"{sleep_iter_min} minutes ({sleep_after_iteration}s)",
+        "Full Loop Cooldown": f"{sleep_loop_hours} hours",
+        "Account Warm-up": "Completed" if enable_warmup else "Skipped",
+    }
+    show_session_plan("Following Feed Liker Mission Plan", session_plan)
 
     console.print(f"\n[bold green]:rocket: Bot is starting for {len(followings)} following users with custom delays...[/bold green]\n")
 
@@ -182,15 +264,18 @@ def main():
                             # 2. Natural viewing dwell pause (1 to 2 seconds)
                             view_dwell = randint(1, 2)
                             log_sleep(view_dwell, message=f"Viewing post naturally ({view_dwell}s)")
-                            # 3. Like post
-                            liked = bot.like_user_post(post_pk, username=username, user_pk=str(user_pk))
-                            if liked:
-                                action_performed = True
-                                loop_liked_count += 1
-                                total_actions_all_time += 1
+                            # 3. Like post (if enabled)
+                            if like_posts:
+                                liked = bot.like_user_post(post_pk, username=username, user_pk=str(user_pk))
+                                if liked:
+                                    action_performed = True
+                                    loop_liked_count += 1
+                                    total_actions_all_time += 1
                             # 4. Comment on post
                             if commenting:
-                                bot.comment_user_post(post_pk, username=username, user_pk=str(user_pk))
+                                c_sent = bot.comment_user_post(post_pk, username=username, user_pk=str(user_pk))
+                                if c_sent:
+                                    action_performed = True
 
                     if action_performed:
                         log_sleep(sleep_after_iteration, message=f"Cooling down after processing @{username}")
@@ -220,6 +305,10 @@ def main():
                 ":repeat: Total Loops Run": f"[bold cyan]{loop}[/bold cyan]"
             },
             border_style="yellow"
+        )
+        notify_task_completed(
+            "لایک‌کننده فالویینگ‌ها (Following Liker)",
+            f"ربات متوقف شد. مجموعاً {total_actions_all_time} اقدام انجام شد."
         )
 
 if __name__ == "__main__":

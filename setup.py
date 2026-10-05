@@ -143,6 +143,39 @@ def check_dependencies():
         print_success("All core dependencies are aligned with instagrapi 3.0+ standards!")
 
 
+def check_termux_environment():
+    """Detects Termux environment and checks/installs termux-api for Android notifications."""
+    is_in_termux = (
+        bool(os.environ.get("TERMUX_VERSION"))
+        or "com.termux" in os.environ.get("PREFIX", "")
+        or os.path.exists("/data/data/com.termux")
+        or "com.termux" in sys.executable
+    )
+    if not is_in_termux:
+        return
+
+    print_step("Termux Android Environment Detected")
+    has_api = shutil.which("termux-notification") is not None
+    if has_api:
+        print_success("Termux:API CLI tools detected (Native notifications enabled)")
+    else:
+        print_warn("Termux:API package is missing (Required for Android notifications & alerts)")
+        pkg_bin = shutil.which("pkg") or shutil.which("apt")
+        if pkg_bin:
+            print_info("Attempting to install termux-api via pkg...")
+            import subprocess
+            try:
+                res = subprocess.run([pkg_bin, "install", "-y", "termux-api"], check=False)
+                if res.returncode == 0 and shutil.which("termux-notification"):
+                    print_success("Installed termux-api successfully!")
+                else:
+                    print_warn("Please install manually via: pkg install termux-api")
+            except Exception:
+                print_warn("Please install manually via: pkg install termux-api")
+        else:
+            print_warn("Run 'pkg install termux-api' in Termux to enable phone notifications.")
+
+
 def run_setup():
     """Execute all setup tasks."""
     print("=" * 65)
@@ -154,6 +187,7 @@ def run_setup():
     setup_comments()
     setup_database()
     check_dependencies()
+    check_termux_environment()
 
     print("\n" + "=" * 65)
     print(" \033[92mSetup completed successfully!\033[0m")

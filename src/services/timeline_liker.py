@@ -20,6 +20,7 @@ from src.utils import (
     show_banner,
     show_section_divider,
     show_stats_card,
+    show_session_plan,
     console,
     log_error,
     log_warning,
@@ -30,8 +31,12 @@ from src.utils import (
     ask_choice_or_custom,
     ask_int,
     register_graceful_shutdown,
-    em
+    em,
+    QUESTIONARY_STYLE,
+    notify_task_completed,
+    handle_connection_recovery
 )
+from src.utils.config_memory import prompt_config_mode, save_bot_preferences
 
 def format_relative_time(timestamp: float) -> str:
     """Returns human-readable relative time like '15m ago' or '2h 10m ago'."""
@@ -105,81 +110,155 @@ def main():
     bot.start()
 
     if not getattr(bot, 'user_id', None):
-        log_error("Not logged in. Exiting.")
-        sys.exit(0)
+        log_error("Not logged in. Returning to main menu.")
+        return
 
-    # ----------- Interactive Configuration (Questionary) --------------
-    console.print("\n[bold cyan]:gear: Configure Timeline Bot Parameters[/bold cyan]")
+    # ----------------- Smart Memory Check -----------------
+    config_mode, saved_pref = prompt_config_mode("Timeline Feed Liker", "timeline_liker")
+    if config_mode == "back":
+        log_print("Returning to main menu... :back:")
+        return
 
-    # Warm-up option (Selectable Yes/No)
-    enable_warmup = ask_yes_no(
-        "Perform natural account warm-up actions before starting?",
-        default=True
-    )
-
-    # Max pages to paginate per cycle (Presets + Custom)
-    max_pages = ask_choice_or_custom(
-        english_title="Select max feed pages to fetch per cycle",
-        options=[
-            (3, "3 pages", "Fast & Light", ":zap:"),
-            (6, "6 pages", "Recommended & Standard", ":shield:"),
-            (10, "10 pages", "Deeper Feed", ":mag:"),
-            (15, "15 pages", "Maximum Feed", ":rocket:"),
-        ],
-        default_val=6,
-        custom_prompt_en="Enter custom max pages count",
-        val_type=int
-    )
-
-    # Like delay configuration with presets (25-50s, 60-90s, 90-150s, Custom)
-    bot.like_delay_range = ask_delay_range("likes", default_range=[60, 90])
-
-    # Refresh cooldown between cycles (Presets + Custom)
-    refresh_cooldown_min = ask_choice_or_custom(
-        english_title="Select cooldown before refreshing timeline feed again (minutes)",
-        options=[
-            (1, "1 minute", "Fast", ":zap:"),
-            (3, "3 minutes", "Recommended & Safe", ":shield:"),
-            (5, "5 minutes", "Conservative", ":hourglass:"),
-            (10, "10 minutes", "Long Rest", ":sleeping:"),
-        ],
-        default_val=3,
-        custom_prompt_en="Enter custom cooldown minutes",
-        val_type=float
-    )
-    refresh_cooldown_seconds = int(refresh_cooldown_min * 60)
-
-    # Commenting toggle (Selectable Yes/No)
-    commenting = ask_yes_no(
-        "Enable automated comments on timeline posts?",
-        default=False
-    )
-    if commenting:
-        current_comments = load_comments()
-        if not current_comments:
-            log_warning(f"Notice: [bold yellow]{COMMENTS_FILE_PATH}[/bold yellow] is currently empty. Please write your custom comments into [bold yellow]{COMMENTS_FILE_PATH}[/bold yellow]! :warning:")
-        else:
-            log_print(f"Automated commenting is [bold green]ENABLED[/bold green] ({len(current_comments)} comments loaded from [bold yellow]{COMMENTS_FILE_PATH}[/bold yellow]) :white_check_mark:")
-        bot.comment_delay_range = ask_delay_range("comments", default_range=[60, 90])
-
-    # Story Interaction
-    story_interaction = ask_yes_no(
-        "Enable automated story viewing & liking for authors with active stories?",
-        default=True
-    )
-    if story_interaction:
-        log_print("Automated Story Viewing & Liking is [bold green]ENABLED[/bold green] :clapper: :heart:")
-        bot.story_view_count = ask_int("How many recent stories do you want to VIEW? (-1 for all, 0 for none)", default=-1, min_val=-1)
-        bot.story_like_count = ask_int("How many recent stories do you want to LIKE? (-1 for all, 0 for none, 1 for last)", default=1, min_val=-1)
-        bot.story_delay_range = ask_delay_range("story like cooldown", default_range=[30, 60])
+    # ----------- Configuration: Quick vs Custom --------------
+    if config_mode == "quick" and saved_pref:
+        like_posts = saved_pref.get("like_posts", True)
+        story_interaction = saved_pref.get("interact_story", True)
+        commenting = saved_pref.get("commenting", False)
+        enable_warmup = saved_pref.get("enable_warmup", True)
+        max_pages = saved_pref.get("max_pages", 6)
+        bot.like_delay_range = saved_pref.get("like_delay_range", [60, 90])
+        bot.comment_delay_range = saved_pref.get("comment_delay_range", [60, 90])
+        bot.story_delay_range = saved_pref.get("story_delay_range", [30, 60])
+        refresh_cooldown_seconds = saved_pref.get("refresh_cooldown_seconds", 180)
+        bot.story_view_count = -1 if story_interaction else 0
+        bot.story_like_count = 1 if story_interaction else 0
+        log_success("Loaded saved preferences for 1-click execution! :rocket:")
     else:
-        log_print("Automated Story Interaction is [bold red]DISABLED[/bold red] :cross_mark:")
-        bot.story_view_count = 0
-        bot.story_like_count = 0
+        console.print("\n[bold cyan]:gear: Configure Timeline Bot Modules & Parameters[/bold cyan]")
+
+        kwargs = {"style": QUESTIONARY_STYLE} if QUESTIONARY_STYLE else {}
+        selected_actions = questionary.checkbox(
+            em("Select timeline interaction actions to perform: (Space to toggle, Enter to confirm)"),
+            choices=[
+                questionary.Choice(
+                    title=em(":heart: Like Feed Posts (لایک پست‌های فید تایم‌لاین)"),
+                    value="like_posts",
+                    checked=True
+                ),
+                questionary.Choice(
+                    title=em(":clapper: View & Like Author Stories (مشاهده و لایک استوری نویسنده پست)"),
+                    value="interact_story",
+                    checked=True
+                ),
+                questionary.Choice(
+                    title=em(":speech_balloon: Comment on Feed Posts (ارسال کامنت خودکار روی پست‌ها)"),
+                    value="commenting",
+                    checked=False
+                ),
+                questionary.Choice(
+                    title=em(":zap: Account Warm-up (گرم کردن طبیعی اکانت قبل از شروع)"),
+                    value="warmup",
+                    checked=True
+                ),
+            ],
+            **kwargs
+        ).ask()
+
+        if selected_actions is None:
+            log_warning("Operation cancelled by user.")
+            return
+
+        like_posts = "like_posts" in selected_actions
+        story_interaction = "interact_story" in selected_actions
+        commenting = "commenting" in selected_actions
+        enable_warmup = "warmup" in selected_actions
+
+        if not like_posts and not story_interaction and not commenting:
+            log_warning("No engagement actions selected. Enabling default feed post likes.")
+            like_posts = True
+
+        # Max pages to paginate per cycle (Presets + Custom)
+        max_pages = ask_choice_or_custom(
+            english_title="Select max feed pages to fetch per cycle",
+            options=[
+                (3, "3 pages", "Fast & Light", ":zap:"),
+                (6, "6 pages", "Recommended & Standard", ":shield:"),
+                (10, "10 pages", "Deeper Feed", ":mag:"),
+                (15, "15 pages", "Maximum Feed", ":rocket:"),
+            ],
+            default_val=6,
+            custom_prompt_en="Enter custom max pages count",
+            val_type=int
+        )
+
+        # Like delay configuration with presets
+        if like_posts:
+            bot.like_delay_range = ask_delay_range("likes", default_range=[60, 90])
+        else:
+            bot.like_delay_range = [60, 90]
+
+        # Refresh cooldown between cycles (Presets + Custom)
+        refresh_cooldown_min = ask_choice_or_custom(
+            english_title="Select cooldown before refreshing timeline feed again (minutes)",
+            options=[
+                (1, "1 minute", "Fast", ":zap:"),
+                (3, "3 minutes", "Recommended & Safe", ":shield:"),
+                (5, "5 minutes", "Conservative", ":hourglass:"),
+                (10, "10 minutes", "Long Rest", ":sleeping:"),
+            ],
+            default_val=3,
+            custom_prompt_en="Enter custom cooldown minutes",
+            val_type=float
+        )
+        refresh_cooldown_seconds = int(refresh_cooldown_min * 60)
+
+        # Commenting configuration
+        if commenting:
+            current_comments = load_comments()
+            if not current_comments:
+                log_warning(f"Notice: [bold yellow]{COMMENTS_FILE_PATH}[/bold yellow] is currently empty. Please write your custom comments into [bold yellow]{COMMENTS_FILE_PATH}[/bold yellow]! :warning:")
+            else:
+                log_print(f"Automated commenting is [bold green]ENABLED[/bold green] ({len(current_comments)} comments loaded from [bold yellow]{COMMENTS_FILE_PATH}[/bold yellow]) :white_check_mark:")
+            bot.comment_delay_range = ask_delay_range("comments", default_range=[60, 90])
+
+        # Story Interaction configuration
+        if story_interaction:
+            log_print("Automated Story Viewing & Liking is [bold green]ENABLED[/bold green] :clapper: :heart:")
+            bot.story_view_count = -1
+            bot.story_like_count = 1
+            bot.story_delay_range = ask_delay_range("story like cooldown", default_range=[30, 60])
+        else:
+            bot.story_view_count = 0
+            bot.story_like_count = 0
+
+        # Save preferences for smart memory
+        save_bot_preferences("timeline_liker", {
+            "like_posts": like_posts,
+            "interact_story": story_interaction,
+            "commenting": commenting,
+            "enable_warmup": enable_warmup,
+            "max_pages": max_pages,
+            "like_delay_range": bot.like_delay_range,
+            "comment_delay_range": getattr(bot, 'comment_delay_range', [60, 90]),
+            "story_delay_range": getattr(bot, 'story_delay_range', [30, 60]),
+            "refresh_cooldown_seconds": refresh_cooldown_seconds,
+        })
+        log_success("Saved configuration to smart memory! :floppy_disk:")
 
     # Execute warm-up if enabled
     if enable_warmup:
         bot.perform_warmup_actions(max_feed_items=4, view_stories=True)
+
+    # Display Pre-Flight Mission Plan
+    session_plan = {
+        "Max Pages Per Cycle": f"{max_pages} pages",
+        "Post Likes": f"Enabled ({bot.like_delay_range[0]}-{bot.like_delay_range[1]}s)" if like_posts else "[red]Disabled[/red]",
+        "Refresh Cooldown": f"{refresh_cooldown_min} minutes ({refresh_cooldown_seconds}s)",
+        "Automated Commenting": "Enabled" if commenting else "[red]Disabled[/red]",
+        "Story Interaction": f"Enabled (View: {bot.story_view_count}, Like: {bot.story_like_count})" if story_interaction else "[red]Disabled[/red]",
+        "Account Warm-up": "Completed" if enable_warmup else "Skipped",
+    }
+    show_session_plan("Timeline Feed Liker Mission Plan", session_plan)
 
     console.print(f"\n[bold green]:rocket: Starting Continuous Timeline Liker Bot...[/bold green]\n")
 
@@ -267,20 +346,21 @@ def main():
                 view_dwell = randint(1, 3)
                 log_sleep(view_dwell, message=f"Viewing feed post ({view_dwell}s)")
 
-                # Step C: Like post
-                liked = bot.like_user_post(
-                    pk,
-                    delay_range=bot.like_delay_range,
-                    username=author,
-                    user_pk=author_pk
-                )
-
-                if liked:
-                    round_liked_count += 1
-                    total_liked_all_time += 1
+                # Step C: Like post (if enabled)
+                liked = False
+                if like_posts:
+                    liked = bot.like_user_post(
+                        pk,
+                        delay_range=bot.like_delay_range,
+                        username=author,
+                        user_pk=author_pk
+                    )
+                    if liked:
+                        round_liked_count += 1
+                        total_liked_all_time += 1
 
                 # Step D: Optional Comment
-                if commenting and liked:
+                if commenting:
                     bot.comment_user_post(
                         pk,
                         delay_range=bot.comment_delay_range,
@@ -328,6 +408,10 @@ def main():
             "Session Summary (Stopped)",
             summary_stats,
             border_style="yellow"
+        )
+        notify_task_completed(
+            "لایک‌کننده تایم‌لاین (Timeline Feed Liker)",
+            f"ربات متوقف شد. مجموعاً {total_liked_all_time} پست لایک شدند."
         )
 
 if __name__ == "__main__":

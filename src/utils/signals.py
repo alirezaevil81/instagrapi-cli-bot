@@ -11,8 +11,8 @@ def register_graceful_shutdown(on_shutdown=None):
         return
     _shutdown_registered = True
 
-    def _sig_handler(sig, frame):
-        log_warning("\n:hand: Process interrupted by user (SIGINT/Ctrl+C). Performing graceful shutdown...")
+    def _sigterm_handler(sig, frame):
+        log_warning("\n:hand: Process terminated (SIGTERM). Performing graceful shutdown...")
         try:
             if callable(on_shutdown):
                 on_shutdown()
@@ -22,8 +22,9 @@ def register_graceful_shutdown(on_shutdown=None):
         sys.exit(0)
 
     try:
-        signal.signal(signal.SIGINT, _sig_handler)
+        # Keep standard Python KeyboardInterrupt for interactive Ctrl+C
+        signal.signal(signal.SIGINT, signal.default_int_handler)
         if hasattr(signal, "SIGTERM"):
-            signal.signal(signal.SIGTERM, _sig_handler)
+            signal.signal(signal.SIGTERM, _sigterm_handler)
     except Exception:
         pass

@@ -28,7 +28,8 @@ from src.core.exceptions import (
     ClientThrottledError,
     ClientNotFoundError,
     ClientJSONDecodeError,
-    ProxyAddressIsBlocked
+    ProxyAddressIsBlocked,
+    is_network_error
 )
 
 import questionary
@@ -56,6 +57,7 @@ from src.utils.console import (
     em,
     QUESTIONARY_STYLE
 )
+from src.utils.notifier import handle_connection_recovery
 
 def default_challenge_code_handler(username: str, choice_method=None) -> str:
     """Handles Instagram security challenge code input interactively."""
@@ -85,6 +87,15 @@ class Bot(Client):
         
         # Configure modern Android app profile and hardware settings (instagrapi 3.0+)
         apply_device_settings(self)
+
+        # Configure proxy from environment if defined (supports IG_PROXY, PROXY, INSTA_PROXY, HTTPS_PROXY, HTTP_PROXY)
+        proxy_url = os.getenv("IG_PROXY") or os.getenv("PROXY") or os.getenv("INSTA_PROXY") or os.getenv("HTTPS_PROXY") or os.getenv("HTTP_PROXY")
+        if proxy_url and proxy_url.strip():
+            try:
+                self.set_proxy(proxy_url.strip())
+                log_print(f"Network proxy loaded: [bold cyan]{proxy_url.strip()}[/bold cyan] :globe_with_meridians:")
+            except Exception as pe:
+                log_warning(f"Could not apply proxy configuration: {pe}")
 
     def apply_post_login_delays(self):
         """
@@ -212,7 +223,7 @@ class Bot(Client):
                 )
                 choices.append(
                     questionary.Choice(
-                        title=em(":door: Exit"),
+                        title=em(":back: Back to Main Menu (بازگشت به منوی اصلی)"),
                         value="__exit__"
                     )
                 )
@@ -474,7 +485,12 @@ class Bot(Client):
             except (LoginRequired, ClientLoginRequired):
                 log_error("Login session expired. Please restart and re-login.")
             except Exception as e:
-                log_error("Cannot fetch following: ", str(e))
+                if is_network_error(e):
+                    log_error(f":satellite: Network/DNS error fetching following list: {e}")
+                    if handle_connection_recovery(e, action_name="دریافت لیست فالویینگ‌ها (Fetch Following)"):
+                        return self.get_all_self_following()
+                else:
+                    log_error("Cannot fetch following: ", str(e))
             else:
                 log_success(f"Found [bold magenta]{len(followings)}[/bold magenta] followings :heavy_check_mark:")
         return followings
@@ -497,7 +513,12 @@ class Bot(Client):
         except (LoginRequired, ClientLoginRequired):
             log_error("Session expired while fetching user posts.")
         except Exception as e:
-            log_error(f"Cannot fetch posts for user {user_id}: ", str(e))
+            if is_network_error(e):
+                log_error(f":satellite: Network/DNS error fetching posts for user {user_id}: {e}")
+                if handle_connection_recovery(e, action_name=f"دریافت پست‌های کاربر {user_id}"):
+                    return self.get_user_posts(user_id, amount=amount)
+            else:
+                log_error(f"Cannot fetch posts for user {user_id}: ", str(e))
         return user_posts
 
     def fetch_timeline_feed_posts_24h(self, max_pages: int = 6, cutoff_hours: float = 24.0, fallback_if_empty: bool = True) -> list:
@@ -837,7 +858,10 @@ class Bot(Client):
             log_error("Session expired while marking post as seen.")
             return False
         except Exception as e:
-            log_error(f"Cannot mark post {media_id} as seen: ", str(e))
+            if is_network_error(e):
+                log_error(f":satellite: Network/DNS error marking post {media_id} as seen: {e}")
+            else:
+                log_error(f"Cannot mark post {media_id} as seen: ", str(e))
             return False
 
     def like_user_post(self, media_id: str, delay_range=None, username: str = "", user_pk: str = "") -> bool:
@@ -876,7 +900,12 @@ class Bot(Client):
             log_error("Login session expired while liking post. Please restart and login.")
             return False
         except Exception as e:
-            log_error(f"Cannot like post {media_id}: ", str(e))
+            if is_network_error(e):
+                log_error(f":satellite: Network/DNS error liking post {media_id}: {e}")
+                if handle_connection_recovery(e, action_name=f"لایک پست {media_id}"):
+                    return self.like_user_post(media_id, delay_range=delay_range, username=username, user_pk=user_pk)
+            else:
+                log_error(f"Cannot like post {media_id}: ", str(e))
             return False
 
     def comment_user_post(self, media_id: str, comment_list: list = None, delay_range=None, username: str = "", user_pk: str = "") -> bool:
@@ -920,7 +949,12 @@ class Bot(Client):
             log_error("Session expired while commenting on post.")
             return False
         except Exception as e:
-            log_error(f"Cannot comment on post {media_id}: ", str(e))
+            if is_network_error(e):
+                log_error(f":satellite: Network/DNS error commenting on post {media_id}: {e}")
+                if handle_connection_recovery(e, action_name=f"ارسال کامنت برای پست {media_id}"):
+                    return self.comment_user_post(media_id, comment_list=comment_list, delay_range=delay_range, username=username, user_pk=user_pk)
+            else:
+                log_error(f"Cannot comment on post {media_id}: ", str(e))
             return False
 
     def resolve_media_pk_and_id(self, post_input: str) -> tuple:
@@ -1006,7 +1040,12 @@ class Bot(Client):
             log_error("Login session expired while fetching comments.")
             return []
         except Exception as e:
-            log_warning(f"Could not retrieve comments for post {media_id}: {e}")
+            if is_network_error(e):
+                log_error(f":satellite: Network/DNS error retrieving comments for post {media_id}: {e}")
+                if handle_connection_recovery(e, action_name=f"دریافت کامنت‌های پست {media_id}"):
+                    return self.get_post_comments(media_id, amount=amount)
+            else:
+                log_warning(f"Could not retrieve comments for post {media_id}: {e}")
             return []
 
     def like_comment(
@@ -1080,7 +1119,19 @@ class Bot(Client):
             log_error("Login session expired while liking comment.")
             return False
         except Exception as e:
-            log_error(f"Cannot like comment {comment_pk}: ", str(e))
+            if is_network_error(e):
+                log_error(f":satellite: Network/DNS error liking comment {comment_pk}: {e}")
+                if handle_connection_recovery(e, action_name=f"لایک کامنت {comment_pk}"):
+                    return self.like_comment(
+                        comment_pk=comment_pk,
+                        delay_range=delay_range,
+                        username=username,
+                        user_pk=user_pk,
+                        media_pk=media_pk,
+                        comment_text=comment_text
+                    )
+            else:
+                log_error(f"Cannot like comment {comment_pk}: ", str(e))
             return False
 
     def get_user_active_stories(self, user_pk: str) -> list:
@@ -1109,7 +1160,12 @@ class Bot(Client):
             log_warning("Instagram rate limit hit while checking stories.")
             return []
         except Exception as e:
-            log_warning(f"Could not retrieve active stories for user {user_pk}: {e}")
+            if is_network_error(e):
+                log_error(f":satellite: Network/DNS error retrieving stories for user {user_pk}: {e}")
+                if handle_connection_recovery(e, action_name=f"دریافت استوری‌های کاربر {user_pk}"):
+                    return self.get_user_active_stories(user_pk)
+            else:
+                log_warning(f"Could not retrieve active stories for user {user_pk}: {e}")
             return []
 
     def seen_story(self, story_pk: str, username: str = "", user_pk: str = "") -> bool:
@@ -1146,7 +1202,12 @@ class Bot(Client):
             log_error("Session expired while marking story as seen.")
             return False
         except Exception as e:
-            log_warning(f"Could not mark story {story_pk} as seen: {e}")
+            if is_network_error(e):
+                log_error(f":satellite: Network/DNS error marking story {story_pk} seen: {e}")
+                if handle_connection_recovery(e, action_name=f"مشاهده استوری {story_pk}"):
+                    return self.seen_story(story_pk, username=username, user_pk=user_pk)
+            else:
+                log_warning(f"Could not mark story {story_pk} as seen: {e}")
             return False
 
     def like_story(self, story_pk: str, delay_range=None, username: str = "", user_pk: str = "") -> bool:
@@ -1199,7 +1260,12 @@ class Bot(Client):
             log_error("Login session expired while liking story.")
             return False
         except Exception as e:
-            log_error(f"Cannot like story {story_pk}: ", str(e))
+            if is_network_error(e):
+                log_error(f":satellite: Network/DNS error liking story {story_pk}: {e}")
+                if handle_connection_recovery(e, action_name=f"لایک استوری {story_pk}"):
+                    return self.like_story(story_pk, delay_range=delay_range, username=username, user_pk=user_pk)
+            else:
+                log_error(f"Cannot like story {story_pk}: ", str(e))
             return False
 
     def process_user_stories(

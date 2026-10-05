@@ -15,6 +15,8 @@ from src.utils.console import (
     show_markdown,
     QUESTIONARY_STYLE,
 )
+from src.utils.notifier import ensure_termux_api
+from src.utils.config_memory import get_last_used_service
 from src.utils.signals import register_graceful_shutdown
 from src.services.followers_liker import main as run_followers_bot
 from src.services.post_liker import main as run_post_likers_bot
@@ -25,6 +27,7 @@ def main():
     """Interactive CLI menu to select and launch bots."""
     init_db()
     register_graceful_shutdown()
+    ensure_termux_api(interactive=True)
 
     if len(sys.argv) > 1:
         arg = sys.argv[1].lower().strip()
@@ -41,13 +44,28 @@ def main():
             run_comment_likers_bot()
             return
 
-    show_banner("Instagram Automation Hub", "Smart, Safe, High-Performance Engagement Engine")
-    show_system_dashboard()
+    while True:
+        show_banner("Instagram Automation Hub", "Smart, Safe, High-Performance Engagement Engine")
+        show_system_dashboard()
 
-    kwargs = {"style": QUESTIONARY_STYLE} if QUESTIONARY_STYLE else {}
-    choice = questionary.select(
-        em("Select bot mode to run:"),
-        choices=[
+        last_service = get_last_used_service()
+        service_names = {
+            "timeline_liker": "Timeline Feed Liker",
+            "followers_liker": "Following Feed Liker",
+            "post_liker": "Post Likers Bot",
+            "comment_liker": "Post Comments Liker"
+        }
+
+        choices = []
+        if last_service and last_service in service_names:
+            choices.append(
+                questionary.Choice(
+                    title=em(f":zap: 0. Quick Run Last Bot: [bold cyan]{service_names[last_service]}[/bold cyan]"),
+                    value=f"last_{last_service}"
+                )
+            )
+
+        choices.extend([
             questionary.Choice(
                 title=em(":newspaper: 1. Timeline Feed Liker (Continuous Home Feed Liker with Live Refresh)"),
                 value="timeline"
@@ -72,23 +90,29 @@ def main():
                 title=em(":door: 6. Exit"),
                 value="exit"
             ),
-        ],
-        **kwargs
-    ).ask()
+        ])
 
-    if choice == "timeline":
-        run_timeline_bot()
-    elif choice == "followers":
-        run_followers_bot()
-    elif choice == "posts":
-        run_post_likers_bot()
-    elif choice == "comments":
-        run_comment_likers_bot()
-    elif choice == "config":
-        show_config_tree()
-        console.print(em("\n[dim]Run [bold cyan]python run.py[/bold cyan] again to launch any bot mode.[/dim]\n"))
-    else:
-        console.print(em("\n[bold yellow]:wave: Exited successfully. Goodbye![/bold yellow]\n"))
+        kwargs = {"style": QUESTIONARY_STYLE} if QUESTIONARY_STYLE else {}
+        choice = questionary.select(
+            em("Select bot mode to run:"),
+            choices=choices,
+            **kwargs
+        ).ask()
+
+        if choice is None or choice == "exit":
+            console.print(em("\n[bold yellow]:wave: Exited successfully. Goodbye![/bold yellow]\n"))
+            break
+        elif choice in ["timeline", "last_timeline_liker"]:
+            run_timeline_bot()
+        elif choice in ["followers", "last_followers_liker"]:
+            run_followers_bot()
+        elif choice in ["posts", "last_post_liker"]:
+            run_post_likers_bot()
+        elif choice in ["comments", "last_comment_liker"]:
+            run_comment_likers_bot()
+        elif choice == "config":
+            show_config_tree()
+            questionary.text(em("\nPress [bold cyan]Enter[/bold cyan] to return to main menu..."), **kwargs).ask()
 
 
 if __name__ == "__main__":

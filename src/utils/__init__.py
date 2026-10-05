@@ -25,6 +25,22 @@ from src.utils.console import (
 )
 from src.utils.logger import get_file_logger, clean_rich_markup
 from src.utils.signals import register_graceful_shutdown
+from src.utils.notifier import (
+    is_termux,
+    has_termux_api,
+    ensure_termux_api,
+    install_termux_api_package,
+    send_termux_notification,
+    notify_task_completed,
+    notify_connection_error,
+    handle_connection_recovery
+)
+from src.utils.config_memory import (
+    save_bot_preferences,
+    get_bot_preferences,
+    get_last_used_service,
+    prompt_config_mode
+)
 
 __all__ = [
     "console",
@@ -52,6 +68,18 @@ __all__ = [
     "QUESTIONARY_STYLE",
     "get_file_logger",
     "clean_rich_markup",
-    "register_graceful_shutdown"
+    "register_graceful_shutdown",
+    "is_termux",
+    "has_termux_api",
+    "ensure_termux_api",
+    "install_termux_api_package",
+    "send_termux_notification",
+    "notify_task_completed",
+    "notify_connection_error",
+    "handle_connection_recovery",
+    "save_bot_preferences",
+    "get_bot_preferences",
+    "get_last_used_service",
+    "prompt_config_mode"
 ]
 
