@@ -204,6 +204,8 @@ __marimo__/
 
 # AGENTS
 AGENTS.md
+Agents.md
+agents.md
 
 # App Storage, Sessions, SQLite DB & Logs
 storage/sessions/*

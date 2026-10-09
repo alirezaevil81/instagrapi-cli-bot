@@ -128,7 +128,7 @@ def main():
                 except Exception as e:
                     if is_network_error(e):
                         log_error(f":satellite: Network/DNS error extracting likers for {post}: {e}")
-                        if handle_connection_recovery(e, action_name=f"استخراج لایک‌کننده‌های پست {post}"):
+                        if handle_connection_recovery(e, action_name=f"Extracting likers for post {post}"):
                             # Retry this post
                             posts.insert(i, post)
                     else:
@@ -197,22 +197,22 @@ def main():
             em("Select interaction actions to perform for target users: (Space to toggle, Enter to confirm)"),
             choices=[
                 questionary.Choice(
-                    title=em(":heart: Like Recent Posts (لایک پست‌های اخیر مخاطب)"),
+                    title=em(":heart: Like Recent Posts (Engage target user posts)"),
                     value="like_posts",
                     checked=True
                 ),
                 questionary.Choice(
-                    title=em(":clapper: View & Like Latest Story (تماشا و لایک آخرین استوری مخاطب)"),
+                    title=em(":clapper: View & Like Latest Story (Active stories of target user)"),
                     value="interact_story",
                     checked=True
                 ),
                 questionary.Choice(
-                    title=em(":speech_balloon: Comment on Recent Posts (ارسال کامنت خودکار روی پست‌ها)"),
+                    title=em(":speech_balloon: Comment on Recent Posts (Post comments from template)"),
                     value="comment_posts",
                     checked=False
                 ),
                 questionary.Choice(
-                    title=em(":zap: Account Warm-up (گرم کردن طبیعی اکانت قبل از شروع)"),
+                    title=em(":zap: Account Warm-up (Simulate natural browsing before start)"),
                     value="warmup",
                     checked=True
                 ),
@@ -437,8 +437,8 @@ def main():
     )
     console.print("\n[bold blue]━━━━━━━━━━━━━━━━━━━━━━━━ :sparkles: All Done :sparkles: ━━━━━━━━━━━━━━━━━━━━━━━━[/bold blue]\n")
     notify_task_completed(
-        "ربات لایک‌کننده پست‌ها (Post Likers Bot)",
-        f"پردازش به پایان رسید. تعداد {processed_count} کاربر هدف با موفقیت پردازش شدند."
+        "Post Likers Bot",
+        f"Processing completed. Successfully processed {processed_count} target users."
     )
 
 

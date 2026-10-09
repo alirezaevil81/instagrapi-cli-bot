@@ -141,22 +141,22 @@ def main():
             em("Select timeline interaction actions to perform: (Space to toggle, Enter to confirm)"),
             choices=[
                 questionary.Choice(
-                    title=em(":heart: Like Feed Posts (لایک پست‌های فید تایم‌لاین)"),
+                    title=em(":heart: Like Feed Posts (Engage home timeline posts)"),
                     value="like_posts",
                     checked=True
                 ),
                 questionary.Choice(
-                    title=em(":clapper: View & Like Author Stories (مشاهده و لایک استوری نویسنده پست)"),
+                    title=em(":clapper: View & Like Author Stories (Watch author's stories)"),
                     value="interact_story",
                     checked=True
                 ),
                 questionary.Choice(
-                    title=em(":speech_balloon: Comment on Feed Posts (ارسال کامنت خودکار روی پست‌ها)"),
+                    title=em(":speech_balloon: Comment on Feed Posts (Post comments on feed)"),
                     value="commenting",
                     checked=False
                 ),
                 questionary.Choice(
-                    title=em(":zap: Account Warm-up (گرم کردن طبیعی اکانت قبل از شروع)"),
+                    title=em(":zap: Account Warm-up (Simulate natural browsing before start)"),
                     value="warmup",
                     checked=True
                 ),
@@ -410,8 +410,8 @@ def main():
             border_style="yellow"
         )
         notify_task_completed(
-            "لایک‌کننده تایم‌لاین (Timeline Feed Liker)",
-            f"ربات متوقف شد. مجموعاً {total_liked_all_time} پست لایک شدند."
+            "Timeline Feed Liker",
+            f"Bot stopped. Total liked: {total_liked_all_time} feed posts."
         )
 
 if __name__ == "__main__":

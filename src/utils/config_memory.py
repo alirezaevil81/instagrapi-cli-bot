@@ -86,15 +86,15 @@ def prompt_config_mode(service_name: str, service_key: str) -> Tuple[str, Option
             em(f"How would you like to configure {service_name}?"),
             choices=[
                 questionary.Choice(
-                    title=em(":rocket: 1. Quick Launch (شروع فوری با آخرین تنظیمات ذخیره‌شده)"),
+                    title=em(":rocket: 1. Quick Launch (Start immediately with saved config)"),
                     value="quick"
                 ),
                 questionary.Choice(
-                    title=em(":gear: 2. Customize Settings (تغییر و شخصی‌سازی تنظیمات)"),
+                    title=em(":gear: 2. Customize Settings (Configure parameters)"),
                     value="custom"
                 ),
                 questionary.Choice(
-                    title=em(":back: 3. Back to Main Menu (بازگشت به منوی اصلی)"),
+                    title=em(":back: 3. Back to Main Menu"),
                     value="back"
                 ),
             ],
@@ -112,11 +112,11 @@ def prompt_config_mode(service_name: str, service_key: str) -> Tuple[str, Option
             em(f"Configure {service_name}:"),
             choices=[
                 questionary.Choice(
-                    title=em(":gear: 1. Configure Bot Parameters (شروع تنظیمات)"),
+                    title=em(":gear: 1. Configure Bot Parameters (Start setup)"),
                     value="custom"
                 ),
                 questionary.Choice(
-                    title=em(":back: 2. Back to Main Menu (بازگشت به منوی اصلی)"),
+                    title=em(":back: 2. Back to Main Menu"),
                     value="back"
                 ),
             ],

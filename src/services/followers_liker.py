@@ -83,22 +83,22 @@ def main():
             em("Select interaction actions to perform for followings: (Space to toggle, Enter to confirm)"),
             choices=[
                 questionary.Choice(
-                    title=em(":heart: Like Recent Posts (لایک پست‌های اخیر فالویینگ‌ها)"),
+                    title=em(":heart: Like Recent Posts (Engage posts from followings)"),
                     value="like_posts",
                     checked=True
                 ),
                 questionary.Choice(
-                    title=em(":clapper: View & Like Active Stories (تماشا و لایک استوری‌های فعال)"),
+                    title=em(":clapper: View & Like Active Stories (Watch & like active stories)"),
                     value="interact_story",
                     checked=True
                 ),
                 questionary.Choice(
-                    title=em(":speech_balloon: Comment on Recent Posts (ارسال کامنت خودکار روی پست‌ها)"),
+                    title=em(":speech_balloon: Comment on Recent Posts (Post comments on followings)"),
                     value="commenting",
                     checked=False
                 ),
                 questionary.Choice(
-                    title=em(":zap: Account Warm-up (گرم کردن طبیعی اکانت قبل از شروع)"),
+                    title=em(":zap: Account Warm-up (Simulate natural browsing before start)"),
                     value="warmup",
                     checked=True
                 ),
@@ -307,8 +307,8 @@ def main():
             border_style="yellow"
         )
         notify_task_completed(
-            "لایک‌کننده فالویینگ‌ها (Following Liker)",
-            f"ربات متوقف شد. مجموعاً {total_actions_all_time} اقدام انجام شد."
+            "Following Feed Liker",
+            f"Bot stopped. Total actions performed: {total_actions_all_time}."
         )
 
 if __name__ == "__main__":

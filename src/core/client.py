@@ -223,7 +223,7 @@ class Bot(Client):
                 )
                 choices.append(
                     questionary.Choice(
-                        title=em(":back: Back to Main Menu (بازگشت به منوی اصلی)"),
+                        title=em(":back: Back to Main Menu"),
                         value="__exit__"
                     )
                 )
@@ -487,7 +487,7 @@ class Bot(Client):
             except Exception as e:
                 if is_network_error(e):
                     log_error(f":satellite: Network/DNS error fetching following list: {e}")
-                    if handle_connection_recovery(e, action_name="دریافت لیست فالویینگ‌ها (Fetch Following)"):
+                    if handle_connection_recovery(e, action_name="Fetching following list"):
                         return self.get_all_self_following()
                 else:
                     log_error("Cannot fetch following: ", str(e))
@@ -515,7 +515,7 @@ class Bot(Client):
         except Exception as e:
             if is_network_error(e):
                 log_error(f":satellite: Network/DNS error fetching posts for user {user_id}: {e}")
-                if handle_connection_recovery(e, action_name=f"دریافت پست‌های کاربر {user_id}"):
+                if handle_connection_recovery(e, action_name=f"Fetching posts for user {user_id}"):
                     return self.get_user_posts(user_id, amount=amount)
             else:
                 log_error(f"Cannot fetch posts for user {user_id}: ", str(e))
@@ -902,7 +902,7 @@ class Bot(Client):
         except Exception as e:
             if is_network_error(e):
                 log_error(f":satellite: Network/DNS error liking post {media_id}: {e}")
-                if handle_connection_recovery(e, action_name=f"لایک پست {media_id}"):
+                if handle_connection_recovery(e, action_name=f"Liking post {media_id}"):
                     return self.like_user_post(media_id, delay_range=delay_range, username=username, user_pk=user_pk)
             else:
                 log_error(f"Cannot like post {media_id}: ", str(e))
@@ -951,7 +951,7 @@ class Bot(Client):
         except Exception as e:
             if is_network_error(e):
                 log_error(f":satellite: Network/DNS error commenting on post {media_id}: {e}")
-                if handle_connection_recovery(e, action_name=f"ارسال کامنت برای پست {media_id}"):
+                if handle_connection_recovery(e, action_name=f"Commenting on post {media_id}"):
                     return self.comment_user_post(media_id, comment_list=comment_list, delay_range=delay_range, username=username, user_pk=user_pk)
             else:
                 log_error(f"Cannot comment on post {media_id}: ", str(e))
@@ -1042,7 +1042,7 @@ class Bot(Client):
         except Exception as e:
             if is_network_error(e):
                 log_error(f":satellite: Network/DNS error retrieving comments for post {media_id}: {e}")
-                if handle_connection_recovery(e, action_name=f"دریافت کامنت‌های پست {media_id}"):
+                if handle_connection_recovery(e, action_name=f"Fetching comments for post {media_id}"):
                     return self.get_post_comments(media_id, amount=amount)
             else:
                 log_warning(f"Could not retrieve comments for post {media_id}: {e}")
@@ -1121,7 +1121,7 @@ class Bot(Client):
         except Exception as e:
             if is_network_error(e):
                 log_error(f":satellite: Network/DNS error liking comment {comment_pk}: {e}")
-                if handle_connection_recovery(e, action_name=f"لایک کامنت {comment_pk}"):
+                if handle_connection_recovery(e, action_name=f"Liking comment {comment_pk}"):
                     return self.like_comment(
                         comment_pk=comment_pk,
                         delay_range=delay_range,
@@ -1162,7 +1162,7 @@ class Bot(Client):
         except Exception as e:
             if is_network_error(e):
                 log_error(f":satellite: Network/DNS error retrieving stories for user {user_pk}: {e}")
-                if handle_connection_recovery(e, action_name=f"دریافت استوری‌های کاربر {user_pk}"):
+                if handle_connection_recovery(e, action_name=f"Fetching stories for user {user_pk}"):
                     return self.get_user_active_stories(user_pk)
             else:
                 log_warning(f"Could not retrieve active stories for user {user_pk}: {e}")
@@ -1204,7 +1204,7 @@ class Bot(Client):
         except Exception as e:
             if is_network_error(e):
                 log_error(f":satellite: Network/DNS error marking story {story_pk} seen: {e}")
-                if handle_connection_recovery(e, action_name=f"مشاهده استوری {story_pk}"):
+                if handle_connection_recovery(e, action_name=f"Viewing story {story_pk}"):
                     return self.seen_story(story_pk, username=username, user_pk=user_pk)
             else:
                 log_warning(f"Could not mark story {story_pk} as seen: {e}")
@@ -1262,7 +1262,7 @@ class Bot(Client):
         except Exception as e:
             if is_network_error(e):
                 log_error(f":satellite: Network/DNS error liking story {story_pk}: {e}")
-                if handle_connection_recovery(e, action_name=f"لایک استوری {story_pk}"):
+                if handle_connection_recovery(e, action_name=f"Liking story {story_pk}"):
                     return self.like_story(story_pk, delay_range=delay_range, username=username, user_pk=user_pk)
             else:
                 log_error(f"Cannot like story {story_pk}: ", str(e))

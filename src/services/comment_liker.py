@@ -164,7 +164,7 @@ def extract_comments_from_posts(
         except Exception as e:
             if is_network_error(e):
                 log_error(f":satellite: Network/DNS error extracting comments for {post_str}: {e}")
-                if handle_connection_recovery(e, action_name=f"استخراج کامنت‌های پست {post_str}"):
+                if handle_connection_recovery(e, action_name=f"Extracting comments from post {post_str}"):
                     # Retry this post
                     posts.insert(idx, post_str)
             else:
@@ -243,12 +243,12 @@ def main():
             em("Select comment extraction filters: (Space to toggle, Enter to confirm)"),
             choices=[
                 questionary.Choice(
-                    title=em(":white_check_mark: 0-Likes Only (فقط کامنت‌های بدون لایک)"),
+                    title=em(":white_check_mark: 0-Likes Only (Filter comments with 0 likes)"),
                     value="zero_likes",
                     checked=True
                 ),
                 questionary.Choice(
-                    title=em(":shield: Skip Own Comments (رد کردن کامنت‌های پیج خودتان)"),
+                    title=em(":shield: Skip Own Comments (Exclude comments by self)"),
                     value="skip_own",
                     checked=True
                 ),
@@ -301,22 +301,22 @@ def main():
             em("Select interaction actions to perform: (Space to toggle, Enter to confirm)"),
             choices=[
                 questionary.Choice(
-                    title=em(":heart: Like Target Comments (لایک کامنت‌های استخراج‌شده)"),
+                    title=em(":heart: Like Target Comments (Like extracted comments)"),
                     value="like_comments",
                     checked=True
                 ),
                 questionary.Choice(
-                    title=em(":clapper: View & Like Commenter's Latest Story (تماشا و لایک آخرین استوری کامنت‌گذار)"),
+                    title=em(":clapper: View & Like Commenter's Latest Story (Story engagement)"),
                     value="interact_story",
                     checked=True
                 ),
                 questionary.Choice(
-                    title=em(":camera: Like Commenter's Recent Posts (لایک پست‌های اخیر کامنت‌گذار)"),
+                    title=em(":camera: Like Commenter's Recent Posts (Profile engagement)"),
                     value="like_author_posts",
                     checked=False
                 ),
                 questionary.Choice(
-                    title=em(":zap: Account Warm-up (گرم کردن طبیعی اکانت قبل از شروع)"),
+                    title=em(":zap: Account Warm-up (Simulate natural browsing before start)"),
                     value="warmup",
                     checked=True
                 ),
@@ -608,8 +608,8 @@ def main():
     )
     console.print("\n[bold blue]━━━━━━━━━━━━━━━━━━━━━━━━ :sparkles: All Done :sparkles: ━━━━━━━━━━━━━━━━━━━━━━━━[/bold blue]\n")
     notify_task_completed(
-        "لایک‌کننده کامنت‌ها (Post Comments Liker)",
-        f"تعداد {processed_comments_count} کامنت لایک شد. زمان: {elapsed_str}."
+        "Post Comments Liker",
+        f"Processed and liked {processed_comments_count} comments. Elapsed: {elapsed_str}."
     )
 
 

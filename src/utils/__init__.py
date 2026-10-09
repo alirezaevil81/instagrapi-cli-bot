@@ -21,6 +21,7 @@ from src.utils.console import (
     ask_api_delay_range,
     ask_choice_or_custom,
     ask_int,
+    is_compact_terminal,
     QUESTIONARY_STYLE
 )
 from src.utils.logger import get_file_logger, clean_rich_markup
@@ -65,6 +66,7 @@ __all__ = [
     "ask_api_delay_range",
     "ask_choice_or_custom",
     "ask_int",
+    "is_compact_terminal",
     "QUESTIONARY_STYLE",
     "get_file_logger",
     "clean_rich_markup",

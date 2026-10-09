@@ -77,10 +77,10 @@ def ensure_termux_api(interactive: bool = True) -> bool:
 
     from rich.panel import Panel
     warning_msg = (
-        "[bold yellow]:bell: افزونه نوتیفیکیشن اندروید (termux-api) در محیط ترموکس نصب نیست.[/bold yellow]\n\n"
-        "[white]برای ارسال اعلان‌های پایان کار ربات و هشدارهای قطع اتصال/فیلترشکن، پکیج سیستمی [bold cyan]termux-api[/bold cyan] لازم است.[/white]\n\n"
-        "[dim]دستور نصب دستی در ترموکس:[/dim] [bold green]pkg install termux-api[/bold green]\n"
-        "[dim]💡 نکته: اپلیکیشن اندرویدی [bold magenta]Termux:API[/bold magenta] نیز باید روی گوشی نصب باشد (از F-Droid یا GitHub).[/dim]"
+        "[bold yellow]:bell: Android Notification Addon (termux-api) is not installed in Termux.[/bold yellow]\n\n"
+        "[white]To receive bot completion alerts and network/VPN disconnection warnings on your phone, the [bold cyan]termux-api[/bold cyan] package is recommended.[/white]\n\n"
+        "[dim]Manual installation command:[/dim] [bold green]pkg install termux-api[/bold green]\n"
+        "[dim]Note: The [bold magenta]Termux:API[/bold magenta] Android app must also be installed on your device (F-Droid / GitHub).[/dim]"
     )
     console.print()
     console.print(Panel(em(warning_msg), title=em(":iphone: [bold yellow]Termux:API Notification Setup[/bold yellow]"), border_style="yellow"))
@@ -89,19 +89,18 @@ def ensure_termux_api(interactive: bool = True) -> bool:
     if interactive:
         should_install = ask_yes_no(
             english_question="Would you like to automatically install termux-api package now? (pkg install termux-api)",
-            persian_question="آیا می‌خواهید پکیج termux-api اکنون به صورت خودکار نصب شود؟",
             default=True
         )
         if should_install:
             success = install_termux_api_package()
             if success:
-                log_success(":white_check_mark: پکیج termux-api با موفقیت نصب شد! نوتیفیکیشن‌های اندروید فعال شدند. :iphone:")
+                log_success(":white_check_mark: termux-api package installed successfully! Android notifications are enabled. :iphone:")
                 return True
             else:
-                log_error("نصب خودکار termux-api ناموفق بود. لطفاً دستور [bold cyan]pkg install termux-api[/bold cyan] را در ترموکس اجرا کنید.")
+                log_error("Automatic installation failed. Please run [bold cyan]pkg install termux-api[/bold cyan] manually in Termux.")
                 return False
         else:
-            log_warning("از نصب termux-api صرف‌نظر شد. در صورت بروز خطا اعلان صوتی پیش‌فرض پخش خواهد شد.")
+            log_warning("Skipped termux-api installation. Default terminal audio alerts will be used.")
             return False
 
     return False
@@ -162,8 +161,8 @@ def notify_task_completed(service_name: str, summary: str = "") -> None:
     """
     Sends a completion notification when a bot task finishes its operations.
     """
-    title = f"🤖 پایان کار ربات | {service_name}"
-    content = summary if summary else "عملیات ربات با موفقیت به پایان رسید و تمام موارد پردازش شدند."
+    title = f"🤖 Bot Task Completed | {service_name}"
+    content = summary if summary else "Bot task finished successfully. All operations completed."
     
     # Send Termux notification if in Termux
     sent = send_termux_notification(
@@ -177,18 +176,18 @@ def notify_task_completed(service_name: str, summary: str = "") -> None:
     )
     if is_termux():
         if sent:
-            log_print(":bell: [bold green]نوتیفیکیشن پایان کار برای گوشی ارسال شد.[/bold green] :iphone:")
+            log_print(":bell: [bold green]Completion notification sent to device.[/bold green] :iphone:")
         else:
-            log_print(":information_source: [dim]Termux detected. (Install 'pkg install termux-api' for Android pop-up notifications)[/dim]")
+            log_print(":information_source: [dim]Termux detected. (Install 'pkg install termux-api' for Android notifications)[/dim]")
 
 
-def notify_connection_error(action_name: str = "عملیات اینستاگرام", error_detail: str = "") -> None:
+def notify_connection_error(action_name: str = "Instagram Operation", error_detail: str = "") -> None:
     """
     Sends an urgent notification when network/DNS connection is lost.
     """
-    title = f"⚠️ خطای اتصال و شبکه | {action_name}"
+    title = f"⚠️ Network Connection Error | {action_name}"
     detail_msg = f" ({error_detail})" if error_detail else ""
-    content = f"ربات به دلیل قطع ارتباط متوقف شد! لطفاً اینترنت یا فیلترشکن خود را بررسی کنید.{detail_msg}"
+    content = f"Bot paused due to lost connection! Please check your internet or VPN.{detail_msg}"
     
     send_termux_notification(
         title=title,
@@ -201,7 +200,7 @@ def notify_connection_error(action_name: str = "عملیات اینستاگرا�
     )
 
 
-def handle_connection_recovery(exc: Optional[Exception] = None, action_name: str = "عملیات") -> bool:
+def handle_connection_recovery(exc: Optional[Exception] = None, action_name: str = "Instagram Operation") -> bool:
     """
     Pauses the bot when a connection/DNS error occurs, sends a Termux notification,
     and displays an interactive Yes/No prompt asking if the user resolved the connection issue.
@@ -212,25 +211,24 @@ def handle_connection_recovery(exc: Optional[Exception] = None, action_name: str
 
     from rich.panel import Panel
     warning_text = (
-        f"[bold red]:satellite: مشکل در برقراری ارتباط با اینستاگرام (Connection / DNS Error)[/bold red]\n\n"
-        f"[yellow]عملیات:[/yellow] [bold white]{action_name}[/bold white]\n"
-        f"[yellow]جزئیات خطا:[/yellow] [italic dim]{err_text}[/italic dim]\n\n"
-        f"[cyan]💡 راهنمایی:[/cyan] وضعیت اینترنت، وای‌فای، دیتای همراه یا فیلترشکن (VPN / Proxy) خود را بررسی نمایید."
+        f"[bold red]:satellite: Instagram Connection / DNS Error[/bold red]\n\n"
+        f"[yellow]Action:[/yellow] [bold white]{action_name}[/bold white]\n"
+        f"[yellow]Error Detail:[/yellow] [italic dim]{err_text}[/italic dim]\n\n"
+        f"[cyan]💡 Tip:[/cyan] Check your internet connection, Wi-Fi, mobile data, or VPN / proxy status."
     )
     console.print()
-    console.print(Panel(em(warning_text), title=em(":warning: [bold yellow]خطای شبکه و اتصال[/bold yellow]"), border_style="red"))
+    console.print(Panel(em(warning_text), title=em(":warning: [bold yellow]Network & Connection Error[/bold yellow]"), border_style="red"))
     console.print()
 
     # Interactive prompt with Questionary
     resolved = ask_yes_no(
         english_question="Connection issue resolved? (Choose Yes to Retry, No to Stop)",
-        persian_question="آیا مشکل اتصال/فیلترشکن برطرف شد؟ (انتخاب بله برای تلاش مجدد، خیر برای توقف)",
         default=True
     )
 
     if resolved:
-        log_success(":white_check_mark: اتصال تایید شد. در حال تلاش مجدد و ادامه عملیات ربات... :rocket:")
+        log_success(":white_check_mark: Connection verified. Retrying operation... :rocket:")
         return True
     else:
-        log_warning(":stop_sign: ادامه عملیات توسط کاربر لغو شد. پیشرفت کار در دیتابیس ذخیره است. :floppy_disk:")
+        log_warning(":stop_sign: Operation cancelled by user. Progress is saved in SQLite database. :floppy_disk:")
         return False

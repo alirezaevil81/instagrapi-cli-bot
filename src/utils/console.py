@@ -50,6 +50,25 @@ def em(text: str) -> str:
             res = res.replace(code, emoji_char)
     return res
 
+def is_termux() -> bool:
+    """Detects if running inside Termux / Android environment."""
+    if os.environ.get("TERMUX_VERSION") or os.environ.get("TERMUX_MAIN_PACKAGE"):
+        return True
+    prefix = os.environ.get("PREFIX", "")
+    if "com.termux" in prefix:
+        return True
+    if os.path.exists("/data/data/com.termux"):
+        return True
+    if "com.termux" in sys.executable:
+        return True
+    if os.environ.get("ANDROID_DATA") or os.environ.get("ANDROID_ROOT"):
+        return True
+    return False
+
+def is_compact_terminal() -> bool:
+    """Checks if running in Termux or in a narrow mobile terminal."""
+    return is_termux() or (console.width is not None and console.width < 75)
+
 # Configure UTF-8 encoding on Windows consoles
 if sys.platform == "win32":
     try:
@@ -65,8 +84,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-# Initialize Rich Console with standard modern parameters
-console = Console(log_time=True, log_path=True, log_time_format="%Y-%m-%d %H:%M:%S")
+# Initialize Rich Console - optimized for Termux (compact timestamps, no long source file paths)
+_termux_detected = is_termux()
+console = Console(
+    log_time=True,
+    log_path=not _termux_detected,
+    log_time_format="%H:%M:%S" if _termux_detected else "%Y-%m-%d %H:%M:%S"
+)
 
 try:
     from questionary import Style
@@ -342,9 +366,32 @@ def show_system_dashboard():
         box=box.ROUNDED
     )
 
-    # Display 3-card columns
-    console.print(Columns([engine_panel, storage_panel, safety_panel], expand=True))
-    console.print()
+    if is_compact_terminal():
+        # Compact stacked card layout for Termux & narrow mobile screens
+        termux_table = Table(box=box.SIMPLE_HEAD, padding=(0, 1), show_header=False)
+        termux_table.add_column("Key", style="bold cyan", width=12)
+        termux_table.add_column("Value", style="white")
+
+        termux_table.add_row(em(":desktop_computer: Platform"), f"{env_badge} | {notif_badge}")
+        termux_table.add_row(em(":zap: Engine"), "[bold bright_cyan]instagrapi 3.0+[/bold bright_cyan] (HTTP/2)")
+        termux_table.add_row(em(":floppy_disk: Storage"), f"SQLite: [white]{db_size}[/white] | Sessions: [green]{sessions_count}[/green]")
+        termux_table.add_row(em(":inbox_tray: Queues"), f"Comments: [yellow]{pending_comments}[/yellow] | Users: [magenta]{pending_users}[/magenta]")
+        termux_table.add_row(em(":shield: Security"), f"Delay: [yellow]{base_delays[0]}-{base_delays[1]}s[/yellow] | Anti-Ban Active")
+
+        termux_panel = Panel(
+            termux_table,
+            title=em("[bold cyan]:iphone: System Status (Termux)[/bold cyan]"),
+            border_style="cyan",
+            box=box.ROUNDED,
+            padding=(0, 1),
+            expand=False
+        )
+        console.print(Align.center(termux_panel))
+        console.print()
+    else:
+        # Display 3-card columns on desktop
+        console.print(Columns([engine_panel, storage_panel, safety_panel], expand=True))
+        console.print()
 
 def show_markdown(text: str):
     """Renders markdown text elegantly."""
@@ -445,19 +492,27 @@ def log_sleep(seconds: int, message: str = "Sleeping for safety / cooldown", _st
     """
     Dynamic countdown sleep with an animated rotating spinner, progress bar,
     and live real-time countdown of remaining seconds/minutes.
+    Optimized for compact Termux terminals.
     """
     if seconds <= 0:
         return
 
     sec_int = int(seconds)
     formatted_total = format_seconds(sec_int)
+    compact = is_compact_terminal()
+    bar_width = 10 if compact else 20
 
-    with Progress(
+    columns = [
         SpinnerColumn(spinner_name="dots", style="bold cyan"),
         TextColumn(em("[bold yellow]:sleeping: {task.description}[/bold yellow]")),
-        BarColumn(bar_width=20, style="bright_black", complete_style="bold green", finished_style="bold green"),
+        BarColumn(bar_width=bar_width, style="bright_black", complete_style="bold green", finished_style="bold green"),
         TextColumn("[bold cyan]{task.fields[remaining_display]}[/bold cyan] remaining"),
-        TimeRemainingColumn(),
+    ]
+    if not compact:
+        columns.append(TimeRemainingColumn())
+
+    with Progress(
+        *columns,
         console=console,
         transient=True,
     ) as progress:
@@ -481,7 +536,38 @@ def log_sleep(seconds: int, message: str = "Sleeping for safety / cooldown", _st
             time.sleep(frac)
 
 def show_banner(title: str, subtitle: str = ""):
-    """Displays a stylized Rich banner for CLI start using Rich emoji markup, Instagram gradient ASCII logo, and rounded borders."""
+    """Displays a stylized Rich banner for CLI start using Rich emoji markup, Instagram gradient ASCII logo, and rounded borders. Optimized for Termux."""
+    if is_compact_terminal():
+        # Compact, high-visibility header tailored for Termux / mobile portrait screens
+        badges = (
+            "[on #e1306c bold white] CLI [/] "
+            "[on #833ab4 bold white] v0.2.0 [/] "
+            "[on #00c0ff bold black] HTTP/2 [/] "
+            "[on #10b981 bold black] SQLITE [/]"
+        )
+        content = (
+            f"[bold #f09433]:zap: INSTAGRAM CLI BOT :zap:[/bold #f09433]\n"
+            f"{badges}\n\n"
+            f"[bold white]:sparkles: {title} :sparkles:[/bold white]"
+        )
+        if subtitle:
+            content += f"\n[dim bright_white]{subtitle}[/dim bright_white]"
+
+        console.print()
+        console.print(Align.center(Panel(
+            Align.center(Text.from_markup(em(content))),
+            box=box.ROUNDED,
+            border_style="magenta",
+            padding=(0, 2),
+            expand=False
+        )))
+        console.print()
+        try:
+            get_file_logger().info(f"=== {title} ({subtitle}) ===")
+        except Exception:
+            pass
+        return
+
     logo_art = (
         "[bold #f09433]  ___ _  _ ___ _____ _   ___  ___ _____ [/bold #f09433]\n"
         "[bold #e6683c] |_ _| \\| / __|_   _/_\\ | _ )/ _ \\_   _|[/bold #e6683c]\n"
@@ -522,19 +608,22 @@ def show_section_divider(title: str = "", style: str = "bold magenta"):
 
 def show_session_plan(title: str, plan: dict):
     """Renders a sleek execution plan card showing chosen parameters before starting a bot loop."""
-    grid = Table.grid(padding=(0, 2))
+    compact = is_compact_terminal()
+    col_pad = (0, 1) if compact else (0, 2)
+    grid = Table.grid(padding=col_pad)
     grid.add_column(style="bold cyan", justify="left")
     grid.add_column(style="bold yellow", justify="right")
 
     for k, v in plan.items():
         grid.add_row(em(f":small_blue_diamond: {k}"), em(str(v)))
 
+    panel_pad = (0, 1) if compact else (1, 3)
     panel = Panel(
         grid,
         title=em(f":gear: [bold bright_white]{title}[/bold bright_white]"),
         box=box.ROUNDED,
         border_style="bold bright_cyan",
-        padding=(1, 3),
+        padding=panel_pad,
         expand=False
     )
     console.print()
@@ -545,13 +634,15 @@ def show_stats_card(title: str, stats: dict, border_style: str = "bold green"):
     """
     Renders an executive summary KPI card with Rich box borders and emojis.
     """
+    compact = is_compact_terminal()
+    tbl_pad = (0, 1) if compact else (0, 2)
     table = Table(
         title=em(f":bar_chart: [bold white]{title}[/bold white]"),
         box=box.ROUNDED,
         border_style=border_style,
         show_header=True,
         header_style="bold magenta",
-        padding=(0, 2)
+        padding=tbl_pad
     )
     table.add_column(em(":pushpin: Metric / Action"), style="bold white")
     table.add_column(em(":chart_with_upwards_trend: Value / Count"), justify="right", style="bold bright_yellow")
@@ -564,7 +655,35 @@ def show_stats_card(title: str, stats: dict, border_style: str = "bold green"):
     console.print()
 
 def show_user_table(users: list, title: str = "Target Users"):
-    """Renders a Rich table of Instagram users with Rich emoji icons and rounded borders."""
+    """Renders a Rich table of Instagram users with Rich emoji icons and rounded borders. Termux-optimized."""
+    if is_compact_terminal():
+        table = Table(
+            title=em(f":clipboard: [bold cyan]{title}[/bold cyan] ([bold yellow]{len(users)}[/bold yellow])"),
+            box=box.ROUNDED,
+            border_style="cyan",
+            header_style="bold magenta",
+            padding=(0, 1),
+            row_styles=["", "dim"]
+        )
+        table.add_column(em("#"), justify="center", style="cyan", no_wrap=True, width=3)
+        table.add_column(em("User"), style="bold green")
+        table.add_column(em("Name"), style="white")
+        table.add_column(em("Status"), justify="center", width=6)
+
+        for i, user in enumerate(users, start=1):
+            uname = str(getattr(user, 'username', '-'))
+            fname = str(getattr(user, 'full_name', '-'))
+            if len(fname) > 14:
+                fname = fname[:12] + ".."
+            is_priv = getattr(user, 'is_private', False)
+            privacy = em("[bold red]PRV[/bold red]") if is_priv else em("[bold green]PUB[/bold green]")
+            table.add_row(str(i), f"@{uname}", fname if fname else "-", privacy)
+
+        console.print()
+        console.print(table)
+        console.print()
+        return
+
     table = Table(
         title=em(f":clipboard: [bold cyan]{title}[/bold cyan] ([bold yellow]{len(users)}[/bold yellow] users)"),
         box=box.ROUNDED,
@@ -591,8 +710,38 @@ def show_user_table(users: list, title: str = "Target Users"):
     console.print()
 
 def show_comment_table(comments: list, title: str = "Target Unliked Comments", max_display: int = 50):
-    """Renders a Rich table of comments extracted from target posts with status icons and privacy badges."""
+    """Renders a Rich table of comments extracted from target posts with status icons and privacy badges. Termux-optimized."""
     display_list = comments[:max_display]
+    if is_compact_terminal():
+        table = Table(
+            title=em(f":speech_balloon: [bold cyan]{title}[/bold cyan] ([bold yellow]{len(comments)}[/bold yellow])"),
+            box=box.ROUNDED,
+            border_style="cyan",
+            header_style="bold magenta",
+            padding=(0, 1),
+            row_styles=["", "dim"]
+        )
+        table.add_column(em("#"), justify="center", style="cyan", no_wrap=True, width=3)
+        table.add_column(em("Author"), style="bold green")
+        table.add_column(em("Comment Text"), style="white", max_width=22)
+        table.add_column(em("Likes"), justify="center", style="bold magenta", width=5)
+
+        for i, c in enumerate(display_list, start=1):
+            user = getattr(c, 'user', None)
+            uname = str(getattr(user, 'username', '') if user else getattr(c, 'author_username', '-'))
+            text = str(getattr(c, 'text', '')).strip().replace("\n", " ")
+            if len(text) > 22:
+                text = text[:19] + "..."
+            likes_count = getattr(c, 'like_count', 0)
+            table.add_row(str(i), f"@{uname}", text if text else "-", f"❤{likes_count}")
+
+        console.print()
+        console.print(table)
+        if len(comments) > max_display:
+            console.print(em(f"[dim]... and [bold yellow]{len(comments) - max_display}[/bold yellow] more in SQLite queue.[/dim]"))
+        console.print()
+        return
+
     table = Table(
         title=em(f":speech_balloon: [bold cyan]{title}[/bold cyan] ([bold yellow]{len(comments)}[/bold yellow] comments total)"),
         box=box.ROUNDED,
