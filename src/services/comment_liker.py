@@ -51,7 +51,8 @@ from src.utils import (
     em,
     QUESTIONARY_STYLE,
     notify_task_completed,
-    handle_connection_recovery
+    handle_connection_recovery,
+    LiveDashboard
 )
 from src.utils.config_memory import prompt_config_mode, save_bot_preferences
 
@@ -449,7 +450,6 @@ def main():
     show_session_plan("Pre-Flight Engagement Mission Plan", session_plan)
 
     # ----------------- Engagement Loop -----------------
-    console.print(f"\n[bold green]:rocket: Starting automated engagement loop for {len(comments_to_process)} comments...[/bold green]\n")
     processed_comments_count = 0
     author_posts_liked_count = 0
     stories_seen_count = 0
@@ -457,132 +457,134 @@ def main():
     start_time = time.time()
 
     try:
-        for i, comment in enumerate(list(comments_to_process), start=1):
-            c_pk = str(getattr(comment, 'pk', ''))
-            media_pk = str(getattr(comment, 'media_pk', ''))
-            
-            user = getattr(comment, 'user', None)
-            uname = str(getattr(user, 'username', '') if user else getattr(comment, 'author_username', ''))
-            upk = str(getattr(user, 'pk', '') if user else getattr(comment, 'author_pk', ''))
-            is_priv = bool(getattr(comment, 'is_private', False) or (getattr(user, 'is_private', False) if user else False))
-            text = str(getattr(comment, 'text', '')).strip().replace("\n", " ")
-            preview_text = (text[:60] + "...") if len(text) > 60 else text
+        with LiveDashboard(
+            bot_title="Post Comments Liker",
+            total_items=len(comments_to_process),
+            account_name=getattr(cl, 'username', 'You')
+        ) as dash:
+            for i, comment in enumerate(list(comments_to_process), start=1):
+                c_pk = str(getattr(comment, 'pk', ''))
+                media_pk = str(getattr(comment, 'media_pk', ''))
 
-            privacy_badge = "[red]:lock: Private[/red]" if is_priv else "[green]:globe_with_meridians: Public[/green]"
-            show_section_divider(
-                f":speech_balloon: Comment {i}/{len(comments_to_process)}: @{uname} ({privacy_badge}) | ID: {c_pk}",
-                style="bold cyan"
-            )
-            log_print(f"Content: [italic white]\"{preview_text}\"[/italic white]")
+                user = getattr(comment, 'user', None)
+                uname = str(getattr(user, 'username', '') if user else getattr(comment, 'author_username', ''))
+                upk = str(getattr(user, 'pk', '') if user else getattr(comment, 'author_pk', ''))
+                is_priv = bool(getattr(comment, 'is_private', False) or (getattr(user, 'is_private', False) if user else False))
+                text = str(getattr(comment, 'text', '')).strip().replace("\n", " ")
 
-            # ----------------- 1. Like Comment (if enabled) -----------------
-            success = True
-            if like_comments:
-                success = cl.like_comment(
-                    comment_pk=c_pk,
-                    delay_range=like_delay_range,
-                    username=uname,
-                    user_pk=upk,
-                    media_pk=media_pk,
-                    comment_text=text
-                )
+                dash.set_target(uname, step=f"Auditing comment {i}/{len(comments_to_process)}")
 
-            if success:
-                processed_comments_count += 1
-
-                # ----------------- 2. Optional: View and Like Latest Story -----------------
-                if interact_with_latest_story and upk:
-                    if is_priv:
-                        log_warning(f"Commenter @{uname} has a private account. Skipping story interaction :lock:")
+                # ----------------- 1. Like Comment (if enabled) -----------------
+                success = True
+                if like_comments:
+                    dash.set_target(uname, step=f"Liking comment (PK: {c_pk})")
+                    success = cl.like_comment(
+                        comment_pk=c_pk,
+                        delay_range=like_delay_range,
+                        username=uname,
+                        user_pk=upk,
+                        media_pk=media_pk,
+                        comment_text=text
+                    )
+                    if success:
+                        dash.record_action("like", uname, f"Comment {c_pk}", success=True)
                     else:
-                        with console.status(f"[bold cyan]Checking active stories for @{uname}...[/bold cyan]", spinner="dots"):
+                        dash.record_action("like", uname, f"Comment {c_pk}", success=False)
+
+                if success:
+                    processed_comments_count += 1
+
+                    # ----------------- 2. Optional: View and Like Latest Story -----------------
+                    if interact_with_latest_story and upk:
+                        if is_priv:
+                            dash.record_action("skip", uname, "Private profile stories")
+                        else:
+                            dash.set_target(uname, step="Checking active stories")
                             stories = cl.get_user_active_stories(upk)
 
-                        if stories:
-                            # Extract latest story (last item in chronological story list)
-                            latest_story = stories[-1]
-                            s_pk = str(getattr(latest_story, "pk", ""))
-                            if s_pk:
-                                # Step 2a: Mark latest story as seen
-                                if not has_recent_interaction(s_pk, "story_seen"):
-                                    st_seen = cl.seen_story(s_pk, username=uname, user_pk=upk)
-                                    if st_seen:
-                                        stories_seen_count += 1
-                                        dwell = randint(2, 4)
-                                        log_sleep(dwell, message=f"Watching latest story of @{uname} ({dwell}s)")
-                                else:
-                                    log_print(f"Latest story ({s_pk}) of @{uname} was already viewed :eye:")
+                            if stories:
+                                latest_story = stories[-1]
+                                s_pk = str(getattr(latest_story, "pk", ""))
+                                if s_pk:
+                                    # Step 2a: Mark latest story as seen
+                                    if not has_recent_interaction(s_pk, "story_seen"):
+                                        dash.set_target(uname, step=f"Viewing story {s_pk}")
+                                        st_seen = cl.seen_story(s_pk, username=uname, user_pk=upk)
+                                        if st_seen:
+                                            stories_seen_count += 1
+                                            dash.record_action("story_view", uname, f"Story {s_pk}")
+                                            dwell = randint(2, 4)
+                                            dash.live_sleep(dwell, message="Watching latest story")
+                                    else:
+                                        dash.record_action("skip", uname, f"Story {s_pk} already seen")
 
-                                # Step 2b: Like latest story
-                                if not has_recent_interaction(s_pk, "story_like"):
-                                    log_print(f"Liking latest story ({s_pk}) for @{uname} :sparkles: :heart:")
-                                    st_liked = cl.like_story(
-                                        s_pk,
-                                        delay_range=story_like_delay_range,
+                                    # Step 2b: Like latest story
+                                    if not has_recent_interaction(s_pk, "story_like"):
+                                        dash.set_target(uname, step=f"Liking story {s_pk}")
+                                        st_liked = cl.like_story(
+                                            s_pk,
+                                            delay_range=story_like_delay_range,
+                                            username=uname,
+                                            user_pk=upk
+                                        )
+                                        if st_liked:
+                                            stories_liked_count += 1
+                                            dash.record_action("story_like", uname, f"Story {s_pk}")
+                            else:
+                                dash.record_action("skip", uname, "No active stories")
+
+                    # ----------------- 3. Optional: Like Commenter's Recent Posts -----------------
+                    if like_author_posts and upk:
+                        if is_priv:
+                            dash.record_action("skip", uname, "Private profile posts")
+                        else:
+                            dash.set_target(uname, step=f"Fetching recent posts ({posts_per_author})")
+                            author_posts = cl.get_user_posts(upk, amount=posts_per_author)
+
+                            if author_posts:
+                                for p_idx, post in enumerate(author_posts, start=1):
+                                    p_pk = str(getattr(post, 'pk', ''))
+                                    if not p_pk:
+                                        continue
+
+                                    has_liked = getattr(post, 'has_liked', False) or has_recent_interaction(p_pk, "like")
+                                    if has_liked:
+                                        dash.record_action("skip", uname, f"Post {p_pk} already liked")
+                                        continue
+
+                                    # Impression
+                                    dash.set_target(uname, step=f"Viewing author post {p_pk}")
+                                    cl.seen_user_post(p_pk, username=uname, user_pk=upk)
+                                    dwell_sec = randint(1, 2)
+                                    dash.live_sleep(dwell_sec, message="Viewing author post")
+
+                                    # Like post
+                                    dash.set_target(uname, step=f"Liking author post {p_pk}")
+                                    p_liked = cl.like_user_post(
+                                        p_pk,
+                                        delay_range=author_post_delay_range,
                                         username=uname,
                                         user_pk=upk
                                     )
-                                    if st_liked:
-                                        stories_liked_count += 1
-                                else:
-                                    log_print(f"Latest story ({s_pk}) of @{uname} is already liked :heart:")
-                        else:
-                            log_print(f"No active public stories found for @{uname} :clapper:")
+                                    if p_liked:
+                                        author_posts_liked_count += 1
+                                        dash.record_action("like", uname, f"Post {p_pk}", success=True)
+                            else:
+                                dash.record_action("skip", uname, "No public posts")
 
-                # ----------------- 3. Optional: Like Commenter's Recent Posts -----------------
-                if like_author_posts and upk:
-                    if is_priv:
-                        log_warning(f"Commenter @{uname} has a private account. Skipping post likes :lock:")
-                    else:
-                        with console.status(f"[bold cyan]Fetching recent posts for @{uname}...[/bold cyan]", spinner="dots"):
-                            author_posts = cl.get_user_posts(upk, amount=posts_per_author)
+                # Remove from SQLite database queue
+                remove_comment_from_queue(c_pk)
+                if comment in comments_queue:
+                    comments_queue.remove(comment)
 
-                        if author_posts:
-                            log_print(f"Found [bold cyan]{len(author_posts)}[/bold cyan] posts for @{uname}. Engaging... :camera:")
-                            for p_idx, post in enumerate(author_posts, start=1):
-                                p_pk = str(getattr(post, 'pk', ''))
-                                if not p_pk:
-                                    continue
+                dash.advance_processed(1)
 
-                                has_liked = getattr(post, 'has_liked', False) or has_recent_interaction(p_pk, "like")
-                                if has_liked:
-                                    log_print(f"Post {p_pk} of @{uname} was already liked previously :white_check_mark:")
-                                    continue
+                # Batch pause if enabled
+                if rest_every > 0 and (processed_comments_count % rest_every == 0) and (i < len(comments_to_process)):
+                    batch_sleep = randint(120, 180)
+                    dash.live_sleep(batch_sleep, message=f"Batch resting pause ({rest_every} likes)")
 
-                                # Impression
-                                cl.seen_user_post(p_pk, username=uname, user_pk=upk)
-                                dwell_sec = randint(1, 2)
-                                log_sleep(dwell_sec, message=f"Viewing @{uname}'s post {p_idx}/{len(author_posts)} ({dwell_sec}s)")
-
-                                # Like post
-                                p_liked = cl.like_user_post(
-                                    p_pk,
-                                    delay_range=author_post_delay_range,
-                                    username=uname,
-                                    user_pk=upk
-                                )
-                                if p_liked:
-                                    author_posts_liked_count += 1
-                        else:
-                            log_print(f"No recent public posts found on @{uname}'s profile :warning:")
-
-            # Remove from SQLite database queue
-            remove_comment_from_queue(c_pk)
-            if comment in comments_queue:
-                comments_queue.remove(comment)
-
-            rem_count = get_comment_queue_count()
-            if rem_count == 0:
-                log_success(":tada: All unliked comments in queue have been processed!")
-            else:
-                log_print(f":bar_chart: [bold blue]Remaining unliked comments in SQLite queue:[/bold blue] [bold magenta]{rem_count}[/bold magenta]")
-
-            # Batch pause if enabled
-            if rest_every > 0 and (processed_comments_count % rest_every == 0) and (i < len(comments_to_process)):
-                batch_sleep = randint(120, 180)
-                log_print(f"\n[bold yellow]:coffee: Completed batch of {rest_every} comment likes. Taking a safety rest ({batch_sleep}s)...[/bold yellow]")
-                log_sleep(batch_sleep, message=f"Batch safety cooldown ({batch_sleep}s)")
-
+            dash.set_status("FINISHED", step="All target comments processed")
     except KeyboardInterrupt:
         log_warning("\n:stop_sign: Process paused by user (Ctrl+C). Progress safely retained in SQLite database :floppy_disk:.")
 

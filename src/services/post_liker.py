@@ -50,7 +50,8 @@ from src.utils import (
     em,
     QUESTIONARY_STYLE,
     notify_task_completed,
-    handle_connection_recovery
+    handle_connection_recovery,
+    LiveDashboard
 )
 from src.utils.config_memory import prompt_config_mode, save_bot_preferences
 
@@ -305,111 +306,120 @@ def main():
     start_time = time.time()
 
     try:
-        for i, user in enumerate(list(users), start=1):
-            uname = str(getattr(user, 'username', str(user)))
-            upk = str(getattr(user, 'pk', str(user)))
-            is_priv = bool(getattr(user, 'is_private', False))
+        with LiveDashboard(
+            bot_title="Post Likers Bot",
+            total_items=len(users),
+            account_name=getattr(cl, 'username', 'You')
+        ) as dash:
+            for i, user in enumerate(list(users), start=1):
+                uname = str(getattr(user, 'username', str(user)))
+                upk = str(getattr(user, 'pk', str(user)))
+                is_priv = bool(getattr(user, 'is_private', False))
 
-            privacy_badge = "[red]:lock: Private[/red]" if is_priv else "[green]:globe_with_meridians: Public[/green]"
-            show_section_divider(f":bust_in_silhouette: Target User {i}/{len(users)}: @{uname} ({privacy_badge})", style="bold cyan")
+                dash.set_target(uname, step=f"Auditing target liker {i}/{len(users)}")
 
-            if is_priv:
-                log_warning(f"User @{uname} has a private profile. Skipping interaction :lock:")
+                if is_priv:
+                    dash.record_action("skip", uname, "Private profile")
+                    remove_user_from_queue(upk)
+                    if user in users:
+                        users.remove(user)
+                    dash.advance_processed(1)
+                    continue
+
+                # Step 1: Optional Story Interaction (View & Like Latest Story)
+                if interact_story and upk:
+                    dash.set_target(uname, step=f"Checking active stories")
+                    stories = cl.get_user_active_stories(upk)
+
+                    if stories:
+                        latest_story = stories[-1]
+                        s_pk = str(getattr(latest_story, "pk", ""))
+                        if s_pk:
+                            # Mark latest story as seen
+                            if not has_recent_interaction(s_pk, "story_seen"):
+                                dash.set_target(uname, step=f"Viewing active story")
+                                st_seen = cl.seen_story(s_pk, username=uname, user_pk=upk)
+                                if st_seen:
+                                    stories_seen_count += 1
+                                    dash.record_action("story_view", uname, f"Story {s_pk}")
+                                    dwell = randint(2, 4)
+                                    dash.live_sleep(dwell, message=f"Watching latest story")
+                            else:
+                                dash.record_action("skip", uname, f"Story {s_pk} already seen")
+
+                            # Like latest story
+                            if not has_recent_interaction(s_pk, "story_like"):
+                                dash.set_target(uname, step=f"Liking active story")
+                                st_liked = cl.like_story(
+                                    s_pk,
+                                    delay_range=story_delay_range,
+                                    username=uname,
+                                    user_pk=upk
+                                )
+                                if st_liked:
+                                    stories_liked_count += 1
+                                    dash.record_action("story_like", uname, f"Story {s_pk}")
+                    else:
+                        dash.record_action("skip", uname, "No active stories")
+
+                # Step 2: Optional Posts Interaction (Like & Comment)
+                if (like_posts or comment_posts) and upk:
+                    dash.set_target(uname, step=f"Fetching recent posts ({posts_amount})")
+                    user_posts = cl.get_user_posts(upk, amount=posts_amount)
+
+                    if user_posts:
+                        user_acted = False
+                        for p_idx, post in enumerate(user_posts, start=1):
+                            post_pk = str(getattr(post, 'pk', str(post)))
+                            if not post_pk:
+                                continue
+
+                            has_liked = getattr(post, 'has_liked', False) or has_recent_interaction(post_pk, "like")
+
+                            # 2a. Mark post as seen (Impression)
+                            dash.set_target(uname, step=f"Viewing post {p_idx}/{len(user_posts)}")
+                            cl.seen_user_post(post_pk, username=uname, user_pk=upk)
+                            view_dwell = randint(1, 3)
+                            dash.live_sleep(view_dwell, message=f"Viewing post")
+
+                            # 2b. Like post
+                            if like_posts:
+                                if has_liked:
+                                    dash.record_action("skip", uname, f"Post {post_pk} already liked")
+                                else:
+                                    dash.set_target(uname, step=f"Liking post {post_pk}")
+                                    p_liked = cl.like_user_post(post_pk, delay_range=like_delay_range, username=uname, user_pk=upk)
+                                    if p_liked:
+                                        posts_liked_count += 1
+                                        user_acted = True
+                                        dash.record_action("like", uname, f"Post {post_pk}", success=True)
+                                    else:
+                                        dash.record_action("like", uname, f"Post {post_pk}", success=False)
+
+                            # 2c. Comment on post
+                            if comment_posts:
+                                dash.set_target(uname, step=f"Commenting on post {post_pk}")
+                                c_sent = cl.comment_user_post(post_pk, delay_range=comment_delay_range, username=uname, user_pk=upk)
+                                if c_sent:
+                                    comments_sent_count += 1
+                                    user_acted = True
+                                    dash.record_action("comment", uname, f"Post {post_pk}", success=True)
+
+                        if user_acted:
+                            processed_count += 1
+                    else:
+                        dash.record_action("skip", uname, "No public posts")
+                elif interact_story:
+                    processed_count += 1
+
+                # Remove completed user from SQLite queue
                 remove_user_from_queue(upk)
                 if user in users:
                     users.remove(user)
-                continue
 
-            # Step 1: Optional Story Interaction (View & Like Latest Story)
-            if interact_story and upk:
-                with console.status(f"[bold cyan]Checking active stories for @{uname}...[/bold cyan]", spinner="dots"):
-                    stories = cl.get_user_active_stories(upk)
+                dash.advance_processed(1)
 
-                if stories:
-                    latest_story = stories[-1]
-                    s_pk = str(getattr(latest_story, "pk", ""))
-                    if s_pk:
-                        # Mark latest story as seen
-                        if not has_recent_interaction(s_pk, "story_seen"):
-                            st_seen = cl.seen_story(s_pk, username=uname, user_pk=upk)
-                            if st_seen:
-                                stories_seen_count += 1
-                                dwell = randint(2, 4)
-                                log_sleep(dwell, message=f"Watching latest story of @{uname} ({dwell}s)")
-                        else:
-                            log_print(f"Latest story ({s_pk}) of @{uname} was already viewed :eye:")
-
-                        # Like latest story
-                        if not has_recent_interaction(s_pk, "story_like"):
-                            log_print(f"Liking latest story ({s_pk}) for @{uname} :sparkles: :heart:")
-                            st_liked = cl.like_story(
-                                s_pk,
-                                delay_range=story_delay_range,
-                                username=uname,
-                                user_pk=upk
-                            )
-                            if st_liked:
-                                stories_liked_count += 1
-                        else:
-                            log_print(f"Latest story ({s_pk}) of @{uname} is already liked :heart:")
-                else:
-                    log_print(f"No active public stories found for @{uname} :clapper:")
-
-            # Step 2: Optional Posts Interaction (Like & Comment)
-            if (like_posts or comment_posts) and upk:
-                with console.status(f"[bold cyan]Fetching recent posts for @{uname}...[/bold cyan]", spinner="dots"):
-                    user_posts = cl.get_user_posts(upk, amount=posts_amount)
-
-                if user_posts:
-                    log_print(f"Found [bold cyan]{len(user_posts)}[/bold cyan] posts for @{uname}. Engaging... :camera:")
-                    user_acted = False
-                    for p_idx, post in enumerate(user_posts, start=1):
-                        post_pk = str(getattr(post, 'pk', str(post)))
-                        if not post_pk:
-                            continue
-
-                        has_liked = getattr(post, 'has_liked', False) or has_recent_interaction(post_pk, "like")
-
-                        # 2a. Mark post as seen (Impression)
-                        cl.seen_user_post(post_pk, username=uname, user_pk=upk)
-                        view_dwell = randint(1, 3)
-                        log_sleep(view_dwell, message=f"Viewing post {p_idx}/{len(user_posts)} ({view_dwell}s)")
-
-                        # 2b. Like post
-                        if like_posts:
-                            if has_liked:
-                                log_print(f"Post {post_pk} was already liked previously :white_check_mark:")
-                            else:
-                                p_liked = cl.like_user_post(post_pk, delay_range=like_delay_range, username=uname, user_pk=upk)
-                                if p_liked:
-                                    posts_liked_count += 1
-                                    user_acted = True
-
-                        # 2c. Comment on post
-                        if comment_posts:
-                            c_sent = cl.comment_user_post(post_pk, delay_range=comment_delay_range, username=uname, user_pk=upk)
-                            if c_sent:
-                                comments_sent_count += 1
-                                user_acted = True
-
-                    if user_acted:
-                        processed_count += 1
-                else:
-                    log_warning(f"No public posts found on profile @{uname} :warning:")
-            elif interact_story:
-                processed_count += 1
-
-            # Remove completed user from SQLite queue
-            remove_user_from_queue(upk)
-            if user in users:
-                users.remove(user)
-
-            rem_count = get_queue_count()
-            if rem_count == 0:
-                log_success(":tada: All target users processed! SQLite queue cleared.")
-            else:
-                log_print(f":bar_chart: [bold blue]Remaining users in queue:[/bold blue] [bold magenta]{rem_count}[/bold magenta]")
-
+            dash.set_status("FINISHED", step="All target users processed")
     except KeyboardInterrupt:
         log_warning(f"\n:stop_sign: Process paused by user. Progress safely retained in SQLite database :floppy_disk:.")
 

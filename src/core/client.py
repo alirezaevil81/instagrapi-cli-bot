@@ -377,8 +377,24 @@ class Bot(Client):
                     log_error("Session is invalid or expired. Re-authenticating...")
                     login_via_session = False
                 except Exception as e:
-                    log_error(f"Cannot login with session for @{username}: ", str(e))
-                    login_via_session = False
+                    if is_network_error(e):
+                        log_error(f":satellite: Network/VPN error loading session for @{username}: {e}")
+                        if handle_connection_recovery(e, action_name=f"Resuming session for @{username}"):
+                            try:
+                                self.load_settings(session_path)
+                                self.username = username
+                                self.get_timeline_feed()
+                                log_success(f"Logged in successfully via saved session: @[bold cyan]{username}[/bold cyan] :key:")
+                                login = True
+                                break
+                            except Exception as retry_err:
+                                log_error(f"Cannot resume session after recovery: {retry_err}")
+                                login_via_session = False
+                        else:
+                            login_via_session = False
+                    else:
+                        log_error(f"Cannot login with session for @{username}: ", str(e))
+                        login_via_session = False
                 else:
                     log_success(f"Logged in successfully via saved session: @[bold cyan]{username}[/bold cyan] :key:")
                     login = True
@@ -446,8 +462,16 @@ class Bot(Client):
                     log_warning("Rate limited by Instagram. Please wait a few minutes before trying again.")
                     continue
                 except ClientConnectionError as cce:
-                    log_error(f"Network connection error: {cce}")
-                    continue
+                    log_error(f":satellite: Network/VPN error connecting to Instagram: {cce}")
+                    if handle_connection_recovery(cce, action_name=f"Logging in as @{username}"):
+                        try:
+                            with console.status(f"[bold cyan]:hourglass_flowing_sand: Retrying login for @{username}...[/bold cyan]"):
+                                self.login(username=username, password=password)
+                        except Exception as relog_err:
+                            log_error(f"Login retry failed: {relog_err}")
+                            continue
+                    else:
+                        continue
                 except ClientForbiddenError as cfe:
                     log_error(f"Access forbidden: {cfe}")
                     continue
@@ -458,8 +482,20 @@ class Bot(Client):
                     log_error(f"Instagram ClientError: {ce}")
                     continue
                 except Exception as e:
-                    log_error(f"Unexpected error during login for @{username}: ", str(e))
-                    continue
+                    if is_network_error(e):
+                        log_error(f":satellite: Network/VPN error during login for @{username}: {e}")
+                        if handle_connection_recovery(e, action_name=f"Logging in as @{username}"):
+                            try:
+                                with console.status(f"[bold cyan]:hourglass_flowing_sand: Retrying login for @{username}...[/bold cyan]"):
+                                    self.login(username=username, password=password)
+                            except Exception as relog_err:
+                                log_error(f"Login retry failed: {relog_err}")
+                                continue
+                        else:
+                            continue
+                    else:
+                        log_error(f"Unexpected error during login for @{username}: ", str(e))
+                        continue
 
                 self.username = username
                 log_success(f"Logged in successfully: @[bold cyan]{username}[/bold cyan] :white_check_mark:")
@@ -572,7 +608,12 @@ class Bot(Client):
                     try:
                         feed_data = self.get_timeline_feed(reason=reason)
                     except Exception as priv_err:
-                        log_error(f"Timeline feed request error: {priv_err}")
+                        if is_network_error(priv_err):
+                            log_error(f":satellite: Network/VPN error fetching timeline feed: {priv_err}")
+                            if handle_connection_recovery(priv_err, action_name="Fetching timeline feed"):
+                                continue
+                        else:
+                            log_error(f"Timeline feed request error: {priv_err}")
                         break
 
                 if not feed_data or not isinstance(feed_data, dict):

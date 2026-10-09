@@ -313,7 +313,21 @@ def show_system_dashboard():
         env_badge = f"[white]{platform.system()} {platform.release()[:10]}[/white]"
         notif_badge = "[white]Terminal Bell Alert[/white]"
 
+    net_badge = "[dim]Checking...[/dim]"
+    try:
+        from src.utils.notifier import diagnose_connection
+        diag = diagnose_connection()
+        if diag == "ONLINE":
+            net_badge = "[bold #00ffaa]● Connected & VPN Ready[/bold #00ffaa]"
+        elif diag == "VPN_DISCONNECTED":
+            net_badge = "[bold yellow]● VPN Needed / Filtered[/bold yellow]"
+        else:
+            net_badge = "[bold red]● Offline (No Internet)[/bold red]"
+    except Exception:
+        net_badge = "[dim]Unchecked[/dim]"
+
     engine_table.add_row(em(":desktop_computer: Platform:"), env_badge)
+    engine_table.add_row(em(":satellite: Network/VPN:"), net_badge)
     engine_table.add_row(em(":bell: Alerts:"), notif_badge)
     engine_table.add_row(em(":zap: Engine:"), "[bold bright_cyan]instagrapi 3.0+[/bold bright_cyan]")
     engine_table.add_row(em(":shield: Transport:"), "[bold bright_green]curl_cffi (HTTP/2)[/bold bright_green]")
@@ -492,10 +506,21 @@ def log_sleep(seconds: int, message: str = "Sleeping for safety / cooldown", _st
     """
     Dynamic countdown sleep with an animated rotating spinner, progress bar,
     and live real-time countdown of remaining seconds/minutes.
+    If a LiveDashboard is currently active, seamlessly delegates to live_sleep.
     Optimized for compact Termux terminals.
     """
     if seconds <= 0:
         return
+
+    # Seamless delegation to active live dashboard to avoid console flicker
+    try:
+        from src.utils.dashboard import get_active_dashboard
+        active_dash = get_active_dashboard()
+        if active_dash and active_dash._is_active:
+            active_dash.live_sleep(seconds, message=message)
+            return
+    except Exception:
+        pass
 
     sec_int = int(seconds)
     formatted_total = format_seconds(sec_int)

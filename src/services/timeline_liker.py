@@ -34,7 +34,8 @@ from src.utils import (
     em,
     QUESTIONARY_STYLE,
     notify_task_completed,
-    handle_connection_recovery
+    handle_connection_recovery,
+    LiveDashboard
 )
 from src.utils.config_memory import prompt_config_mode, save_bot_preferences
 
@@ -316,57 +317,84 @@ def main():
             round_stories_seen = 0
             round_stories_liked = 0
 
-            # 4. Iterate and process authors & like posts from newest to oldest
-            for idx, post in enumerate(unliked_posts, start=1):
-                pk = post["pk"]
-                author = post["author_username"]
-                author_pk = post["author_pk"]
-                rel_time = format_relative_time(post["taken_at_ts"])
+            # 4. Process posts inside Live Operational Dashboard
+            with LiveDashboard(
+                bot_title="Timeline Feed Liker",
+                total_items=len(unliked_posts),
+                account_name=getattr(bot, 'username', 'You')
+            ) as dash:
+                dash.set_round(round_num)
+                dash.liked_count = total_liked_all_time
+                dash.stories_viewed_count = total_stories_seen_all_time
+                dash.stories_liked_count = total_stories_liked_all_time
 
-                console.print(f"\n[bold cyan]─── [:camera: Post {idx}/{len(unliked_posts)}] ───[/bold cyan] @[bold yellow]{author}[/bold yellow] ([green]:clock1: {rel_time}[/green]) | :id: PK: {pk}")
+                for idx, post in enumerate(unliked_posts, start=1):
+                    pk = post["pk"]
+                    author = post["author_username"]
+                    author_pk = post["author_pk"]
+                    rel_time = format_relative_time(post["taken_at_ts"])
 
-                # Step 0: Process active stories of author
-                if story_interaction and author_pk:
-                    st_seen, st_liked = bot.process_user_stories(
-                        user_pk=str(author_pk),
-                        username=str(author),
-                        delay_range=bot.story_delay_range,
-                        view_count=bot.story_view_count,
-                        like_count=bot.story_like_count
-                    )
-                    round_stories_seen += st_seen
-                    round_stories_liked += st_liked
-                    total_stories_seen_all_time += st_seen
-                    total_stories_liked_all_time += st_liked
+                    dash.set_target(author, step=f"Checking post {idx}/{len(unliked_posts)} ({rel_time})")
 
-                # Step A: Mark post as seen (Natural Impression)
-                bot.seen_user_post(pk, username=author, user_pk=author_pk)
+                    # Step 0: Process active stories of author
+                    if story_interaction and author_pk:
+                        dash.set_target(author, step=f"Scanning active stories")
+                        st_seen, st_liked = bot.process_user_stories(
+                            user_pk=str(author_pk),
+                            username=str(author),
+                            delay_range=bot.story_delay_range,
+                            view_count=bot.story_view_count,
+                            like_count=bot.story_like_count
+                        )
+                        if st_seen > 0:
+                            dash.record_action("story_view", author, f"{st_seen} stories seen")
+                        if st_liked > 0:
+                            dash.record_action("story_like", author, f"{st_liked} stories liked")
+                        round_stories_seen += st_seen
+                        round_stories_liked += st_liked
+                        total_stories_seen_all_time += st_seen
+                        total_stories_liked_all_time += st_liked
 
-                # Step B: Natural dwell pause (1-3s)
-                view_dwell = randint(1, 3)
-                log_sleep(view_dwell, message=f"Viewing feed post ({view_dwell}s)")
+                    # Step A: Mark post as seen (Natural Impression)
+                    dash.set_target(author, step=f"Viewing feed post {pk}")
+                    bot.seen_user_post(pk, username=author, user_pk=author_pk)
 
-                # Step C: Like post (if enabled)
-                liked = False
-                if like_posts:
-                    liked = bot.like_user_post(
-                        pk,
-                        delay_range=bot.like_delay_range,
-                        username=author,
-                        user_pk=author_pk
-                    )
-                    if liked:
-                        round_liked_count += 1
-                        total_liked_all_time += 1
+                    # Step B: Natural dwell pause (1-3s)
+                    view_dwell = randint(1, 3)
+                    dash.live_sleep(view_dwell, message=f"Viewing feed post")
 
-                # Step D: Optional Comment
-                if commenting:
-                    bot.comment_user_post(
-                        pk,
-                        delay_range=bot.comment_delay_range,
-                        username=author,
-                        user_pk=author_pk
-                    )
+                    # Step C: Like post (if enabled)
+                    liked = False
+                    if like_posts:
+                        dash.set_target(author, step=f"Sending like for post {pk}")
+                        liked = bot.like_user_post(
+                            pk,
+                            delay_range=bot.like_delay_range,
+                            username=author,
+                            user_pk=author_pk
+                        )
+                        if liked:
+                            round_liked_count += 1
+                            total_liked_all_time += 1
+                            dash.record_action("like", author, f"PK: {pk}", success=True)
+                        else:
+                            dash.record_action("like", author, f"PK: {pk}", success=False)
+
+                    # Step D: Optional Comment
+                    if commenting:
+                        dash.set_target(author, step=f"Leaving comment on post {pk}")
+                        commented = bot.comment_user_post(
+                            pk,
+                            delay_range=bot.comment_delay_range,
+                            username=author,
+                            user_pk=author_pk
+                        )
+                        if commented:
+                            dash.record_action("comment", author, f"PK: {pk}", success=True)
+
+                    dash.advance_processed(1)
+
+                dash.set_status("FINISHED", step="Round processing complete")
 
             # 5. Round Completion & Summary
             round_stats = {

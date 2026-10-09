@@ -34,7 +34,15 @@ from src.utils.notifier import (
     send_termux_notification,
     notify_task_completed,
     notify_connection_error,
-    handle_connection_recovery
+    notify_connection_restored,
+    check_internet_connection,
+    check_instagram_connectivity,
+    diagnose_connection,
+    wait_for_connection,
+    handle_connection_recovery,
+    update_ongoing_progress_notification,
+    remove_ongoing_notification,
+    remove_termux_notification
 )
 from src.utils.config_memory import (
     save_bot_preferences,
@@ -42,6 +50,7 @@ from src.utils.config_memory import (
     get_last_used_service,
     prompt_config_mode
 )
+from src.utils.dashboard import LiveDashboard
 
 __all__ = [
     "console",
@@ -78,10 +87,19 @@ __all__ = [
     "send_termux_notification",
     "notify_task_completed",
     "notify_connection_error",
+    "notify_connection_restored",
+    "check_internet_connection",
+    "check_instagram_connectivity",
+    "diagnose_connection",
+    "wait_for_connection",
     "handle_connection_recovery",
+    "update_ongoing_progress_notification",
+    "remove_ongoing_notification",
+    "remove_termux_notification",
     "save_bot_preferences",
     "get_bot_preferences",
     "get_last_used_service",
-    "prompt_config_mode"
+    "prompt_config_mode",
+    "LiveDashboard"
 ]
 

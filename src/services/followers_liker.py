@@ -29,7 +29,8 @@ from src.utils import (
     em,
     QUESTIONARY_STYLE,
     notify_task_completed,
-    handle_connection_recovery
+    handle_connection_recovery,
+    LiveDashboard
 )
 from src.utils.config_memory import prompt_config_mode, save_bot_preferences
 
@@ -233,54 +234,78 @@ def main():
             following_list = list(followings.values())
             loop_liked_count = 0
 
-            for i, user in enumerate(following_list, start=1):
-                username = getattr(user, 'username', str(user))
-                user_pk = getattr(user, 'pk', str(user))
-                console.print(f"\n[bold cyan]─── [:bust_in_silhouette: User {i}/{len(following_list)}] ───[/bold cyan] @[bold green]{username}[/bold green] (ID: [yellow]{user_pk}[/yellow])")
+            with LiveDashboard(
+                bot_title="Following Feed Liker",
+                total_items=len(following_list),
+                account_name=getattr(bot, 'username', 'You')
+            ) as dash:
+                dash.set_round(loop)
+                dash.liked_count = total_actions_all_time
 
-                # Process active stories
-                if story_interaction and user_pk:
-                    st_seen, st_liked = bot.process_user_stories(
-                        user_pk=str(user_pk),
-                        username=str(username),
-                        delay_range=bot.story_delay_range,
-                        view_count=bot.story_view_count,
-                        like_count=bot.story_like_count
-                    )
-                    if st_liked > 0:
-                        total_actions_all_time += st_liked
+                for i, user in enumerate(following_list, start=1):
+                    username = getattr(user, 'username', str(user))
+                    user_pk = getattr(user, 'pk', str(user))
+                    dash.set_target(username, step=f"Auditing following user ({i}/{len(following_list)})")
 
-                user_posts = bot.get_user_posts(str(user_pk), amount=posts_amount)
-                if user_posts:
-                    action_performed = False
-                    for post in user_posts:
-                        post_pk = str(getattr(post, 'pk', str(post)))
-                        has_liked = getattr(post, 'has_liked', False)
-                        if has_liked:
-                            log_warning(f"Post {post_pk} already liked previously :fast_forward:")
-                        else:
-                            # 1. Mark post as seen (Impression)
-                            bot.seen_user_post(post_pk, username=username, user_pk=str(user_pk))
-                            # 2. Natural viewing dwell pause (1 to 2 seconds)
-                            view_dwell = randint(1, 2)
-                            log_sleep(view_dwell, message=f"Viewing post naturally ({view_dwell}s)")
-                            # 3. Like post (if enabled)
-                            if like_posts:
-                                liked = bot.like_user_post(post_pk, username=username, user_pk=str(user_pk))
-                                if liked:
-                                    action_performed = True
-                                    loop_liked_count += 1
-                                    total_actions_all_time += 1
-                            # 4. Comment on post
-                            if commenting:
-                                c_sent = bot.comment_user_post(post_pk, username=username, user_pk=str(user_pk))
-                                if c_sent:
-                                    action_performed = True
+                    # Process active stories
+                    if story_interaction and user_pk:
+                        dash.set_target(username, step=f"Checking stories")
+                        st_seen, st_liked = bot.process_user_stories(
+                            user_pk=str(user_pk),
+                            username=str(username),
+                            delay_range=bot.story_delay_range,
+                            view_count=bot.story_view_count,
+                            like_count=bot.story_like_count
+                        )
+                        if st_seen > 0:
+                            dash.record_action("story_view", username, f"{st_seen} stories seen")
+                        if st_liked > 0:
+                            dash.record_action("story_like", username, f"{st_liked} stories liked")
+                            total_actions_all_time += st_liked
 
-                    if action_performed:
-                        log_sleep(sleep_after_iteration, message=f"Cooling down after processing @{username}")
-                else:
-                    log_warning(f"No recent public posts found for @{username} :warning:")
+                    dash.set_target(username, step=f"Fetching recent posts ({posts_amount})")
+                    user_posts = bot.get_user_posts(str(user_pk), amount=posts_amount)
+                    if user_posts:
+                        action_performed = False
+                        for post in user_posts:
+                            post_pk = str(getattr(post, 'pk', str(post)))
+                            has_liked = getattr(post, 'has_liked', False)
+                            if has_liked:
+                                dash.record_action("skip", username, f"Post {post_pk} already liked")
+                            else:
+                                # 1. Mark post as seen (Impression)
+                                dash.set_target(username, step=f"Viewing post {post_pk}")
+                                bot.seen_user_post(post_pk, username=username, user_pk=str(user_pk))
+                                # 2. Natural viewing dwell pause (1 to 2 seconds)
+                                view_dwell = randint(1, 2)
+                                dash.live_sleep(view_dwell, message=f"Viewing post ({view_dwell}s)")
+                                # 3. Like post (if enabled)
+                                if like_posts:
+                                    dash.set_target(username, step=f"Liking post {post_pk}")
+                                    liked = bot.like_user_post(post_pk, username=username, user_pk=str(user_pk))
+                                    if liked:
+                                        action_performed = True
+                                        loop_liked_count += 1
+                                        total_actions_all_time += 1
+                                        dash.record_action("like", username, f"Post {post_pk}", success=True)
+                                    else:
+                                        dash.record_action("like", username, f"Post {post_pk}", success=False)
+                                # 4. Comment on post
+                                if commenting:
+                                    dash.set_target(username, step=f"Commenting on post {post_pk}")
+                                    c_sent = bot.comment_user_post(post_pk, username=username, user_pk=str(user_pk))
+                                    if c_sent:
+                                        action_performed = True
+                                        dash.record_action("comment", username, f"Post {post_pk}", success=True)
+
+                        if action_performed:
+                            dash.live_sleep(sleep_after_iteration, message=f"Cooling down after @{username}")
+                    else:
+                        dash.record_action("skip", username, "No recent posts")
+
+                    dash.advance_processed(1)
+
+                dash.set_status("FINISHED", step=f"Loop {loop} completed")
 
             hours_str = str(round(sleep_after_loop / 3600, 2))
             show_stats_card(
