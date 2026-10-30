@@ -35,7 +35,6 @@ from src.core.exceptions import (
 import questionary
 from src.core.device import (
     apply_device_settings,
-    DEFAULT_APP_VERSION,
     format_device_summary,
     is_real_phone_hardware,
     get_recommended_device,
@@ -174,19 +173,8 @@ class Bot(Client):
             except Exception:
                 pass
 
-        # Force upgrade older session app versions (e.g. 446 or older) to the modern 449 profile
-        if hasattr(self, "set_app"):
-            try:
-                self.set_app(DEFAULT_APP_VERSION)
-            except Exception:
-                pass
-
-        if hasattr(self, "device_settings") and isinstance(self.device_settings, dict):
-            self.device_settings["app_version"] = DEFAULT_APP_VERSION
-            self.device_settings["version_code"] = DEFAULT_VERSION_CODE
-
-        # If loaded session has no device settings, apply current device profile
-        if not getattr(self, "device_settings", None):
+        # In Termux, ensure phone's hardware overlay is active
+        if is_termux():
             apply_device_settings(self)
 
         if getattr(self, "_in_start_flow", False):
@@ -514,14 +502,14 @@ class Bot(Client):
                 except ClientError as ce:
                     ce_msg = str(ce)
                     if "out of date" in ce_msg.lower() or "upgrade your app" in ce_msg.lower():
-                        log_warning(f"Instagram requested modern app profile: Upgrading app version to {DEFAULT_APP_VERSION}...")
+                        log_warning("Instagram requested updated app profile: refreshing profile via instagrapi...")
                         try:
+                            self.override_app_version = True
                             if hasattr(self, "set_app"):
-                                self.set_app(DEFAULT_APP_VERSION)
-                            if hasattr(self, "device_settings") and isinstance(self.device_settings, dict):
-                                self.device_settings["app_version"] = DEFAULT_APP_VERSION
-                                self.device_settings["version_code"] = DEFAULT_VERSION_CODE
-                            with console.status(f"[bold cyan]:hourglass_flowing_sand: Retrying login with updated profile...[/bold cyan]"):
+                                self.set_app()
+                            if hasattr(self, "set_user_agent"):
+                                self.set_user_agent()
+                            with console.status(f"[bold cyan]:hourglass_flowing_sand: Retrying login with refreshed profile...[/bold cyan]"):
                                 self.login(username=username, password=password)
                                 self.username = username
                                 session_path = self.get_session_path(username)
@@ -530,7 +518,7 @@ class Bot(Client):
                                 login = True
                                 break
                         except Exception as re_err:
-                            log_error(f"Auto-upgrade retry failed: {re_err}")
+                            log_error(f"Auto-refresh retry failed: {re_err}")
                             continue
                     else:
                         log_error(f"Instagram ClientError: {ce}")

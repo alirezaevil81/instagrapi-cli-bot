@@ -1,7 +1,8 @@
 """
 Device Fingerprinting and Hardware Emulation.
-Provides device settings and hardware profiles compatible with instagrapi 3.0+ and Termux/Android/Linux.
+Provides hardware profiles compatible with instagrapi and Termux/Android.
 Extracts real physical Android device hardware properties in Termux via getprop and wm size.
+Lets instagrapi automatically manage official app versions, version codes, and Bloks hashes.
 """
 import os
 import re
@@ -9,20 +10,8 @@ import platform
 import subprocess
 from typing import Dict, Any, Optional
 
-# Instagram 3.2+ modern Android profile constants (version 449.0.0.52.84)
-try:
-    from instagrapi.config import (
-        DEFAULT_APP_VERSION as IG_DEFAULT_APP_VERSION,
-        APP_SETTINGS as IG_APP_SETTINGS,
-    )
-    DEFAULT_APP_VERSION = IG_DEFAULT_APP_VERSION
-    DEFAULT_VERSION_CODE = IG_APP_SETTINGS.get(DEFAULT_APP_VERSION, {}).get("version_code", "1079242191")
-except Exception:
-    DEFAULT_APP_VERSION = "449.0.0.52.84"
-    DEFAULT_VERSION_CODE = "1079242191"
-
-# Cached device settings so repeated calls are instantaneous
-_CACHED_DEVICE_SETTINGS: Optional[Dict[str, Any]] = None
+# Cached hardware settings so repeated calls are instantaneous
+_CACHED_HARDWARE: Optional[Dict[str, Any]] = None
 _CACHED_IS_REAL_HARDWARE: bool = False
 
 
@@ -75,11 +64,9 @@ def get_screen_resolution(default: str = "1080x2400") -> str:
             check=False
         )
         if res.returncode == 0 and res.stdout:
-            # Matches 'Physical size: 1080x2400' or 'Override size: ...'
             match = re.search(r"(\d{3,4})x(\d{3,4})", res.stdout)
             if match:
                 w, h = int(match.group(1)), int(match.group(2))
-                # Ensure portrait orientation (smaller x larger)
                 w_port, h_port = min(w, h), max(w, h)
                 return f"{w_port}x{h_port}"
     except Exception:
@@ -88,9 +75,7 @@ def get_screen_resolution(default: str = "1080x2400") -> str:
 
 
 def get_screen_density(default: str = "420dpi") -> str:
-    """
-    Queries actual screen density (DPI) from Android system properties.
-    """
+    """Queries actual screen density (DPI) from Android system properties."""
     dpi_raw = get_android_prop("ro.sf.lcd_density", "")
     if dpi_raw and dpi_raw.isdigit():
         return f"{dpi_raw}dpi"
@@ -102,23 +87,23 @@ def get_android_sdk_level() -> str:
     sdk = os.getenv("ANDROID_API_LEVEL")
     if sdk and sdk.strip().isdigit():
         return sdk.strip()
-    return get_android_prop("ro.build.version.sdk", "33")
+    return get_android_prop("ro.build.version.sdk", "34")
 
 
 def get_android_release_version() -> str:
     """Detects Android OS release version (e.g. '13', '14', '15')."""
-    return get_android_prop("ro.build.version.release", "13")
+    return get_android_prop("ro.build.version.release", "14")
 
 
 def get_real_device_info() -> Dict[str, Any]:
     """
     Extracts authentic device hardware specifications from the current Android phone in Termux.
-    If not running on Termux or if system properties cannot be read, falls back to modern defaults.
+    Contains ONLY hardware parameters so instagrapi handles its official app version automatically.
     """
-    global _CACHED_DEVICE_SETTINGS, _CACHED_IS_REAL_HARDWARE
+    global _CACHED_HARDWARE, _CACHED_IS_REAL_HARDWARE
 
-    if _CACHED_DEVICE_SETTINGS is not None:
-        return dict(_CACHED_DEVICE_SETTINGS)
+    if _CACHED_HARDWARE is not None:
+        return dict(_CACHED_HARDWARE)
 
     if is_termux():
         manufacturer_raw = get_android_prop("ro.product.manufacturer", "")
@@ -131,55 +116,38 @@ def get_real_device_info() -> Dict[str, Any]:
         dpi = get_screen_density("420dpi")
         resolution = get_screen_resolution("1080x2400")
 
-        # If we successfully retrieved phone manufacturer and model from real hardware
         if manufacturer_raw and model_raw:
-            # Normalize casing (e.g. 'samsung' -> 'Samsung', 'xiaomi' -> 'Xiaomi')
             mfg = manufacturer_raw.capitalize() if manufacturer_raw.islower() else manufacturer_raw
             model = model_raw.strip()
             device_name = device_raw.strip() or model.lower().replace(" ", "_")
             cpu = cpu_raw.strip() or "qcom"
-            sdk_int = int(sdk_raw) if sdk_raw.isdigit() else 33
+            sdk_int = int(sdk_raw) if sdk_raw.isdigit() else 34
 
-            settings = {
-                "app_version": DEFAULT_APP_VERSION,
+            hardware = {
+                "manufacturer": mfg,
+                "model": model,
+                "device": device_name,
+                "cpu": cpu,
                 "android_version": sdk_int,
-                "android_release": release_raw or "13",
+                "android_release": release_raw or "14",
                 "dpi": dpi,
                 "resolution": resolution,
-                "manufacturer": mfg,
-                "device": device_name,
-                "model": model,
-                "cpu": cpu,
-                "version_code": DEFAULT_VERSION_CODE,
             }
-            _CACHED_DEVICE_SETTINGS = settings
+            _CACHED_HARDWARE = hardware
             _CACHED_IS_REAL_HARDWARE = True
-            return dict(settings)
+            return dict(hardware)
 
-    # Fallback to recommended modern profile matching instagrapi 3.2+ baseline
-    sdk_int = int(get_android_sdk_level()) if get_android_sdk_level().isdigit() else 34
-    settings = {
-        "app_version": DEFAULT_APP_VERSION,
-        "android_version": sdk_int,
-        "android_release": "14",
-        "dpi": "480dpi",
-        "resolution": "1344x2992",
-        "manufacturer": "Google/google",
-        "device": "husky",
-        "model": "Pixel 8 Pro",
-        "cpu": "husky",
-        "version_code": DEFAULT_VERSION_CODE,
-    }
-    _CACHED_DEVICE_SETTINGS = settings
     _CACHED_IS_REAL_HARDWARE = False
-    return dict(settings)
+    return {}
 
 
 def format_device_summary(device_info: Dict[str, Any]) -> str:
     """Returns a clean single-line description of the active device profile."""
-    mfg = device_info.get("manufacturer", "Unknown")
+    if not device_info:
+        return "Default Device Profile"
+    mfg = device_info.get("manufacturer", "Android")
     model = device_info.get("model", "Device")
-    rel = device_info.get("android_release", "Android")
+    rel = device_info.get("android_release", "")
     res = device_info.get("resolution", "")
     dpi = device_info.get("dpi", "")
     details = []
@@ -196,44 +164,33 @@ def format_device_summary(device_info: Dict[str, Any]) -> str:
 def is_real_phone_hardware() -> bool:
     """Returns True if the current device profile was extracted from real Android hardware."""
     global _CACHED_IS_REAL_HARDWARE
-    if _CACHED_DEVICE_SETTINGS is None:
+    if _CACHED_HARDWARE is None and is_termux():
         get_real_device_info()
     return _CACHED_IS_REAL_HARDWARE
 
 
 def get_recommended_device() -> Dict[str, Any]:
     """
-    Returns an authentic Android device fingerprint matching modern Instagram client standards.
-    Uses real phone hardware in Termux when available.
+    Returns real hardware specs in Termux, or an empty dict to use instagrapi defaults.
     """
     return get_real_device_info()
 
 
 def apply_device_settings(client: Any) -> None:
     """
-    Configures device and app profile on an instagrapi Client instance.
-    Uses instagrapi 3.2+'s set_app() when available, falling back to set_device().
-    In Termux, extracts and applies the phone's genuine hardware specs.
+    Configures device hardware profile on an instagrapi Client instance.
+    Calls client.set_device(hardware_updates) which overlays ONLY the physical hardware specs,
+    allowing instagrapi to automatically manage official app versions, version codes,
+    bloks hashes, and user agents without version conflicts.
     """
-    # 1. Apply modern app version profile in instagrapi
-    if hasattr(client, "set_app"):
-        try:
-            client.set_app(DEFAULT_APP_VERSION)
-        except Exception:
-            pass
-
-    # 2. Configure device fingerprint
-    recommended = get_recommended_device()
-    if hasattr(client, "set_device"):
-        try:
-            client.set_device(recommended)
-        except Exception:
-            if hasattr(client, "device_settings"):
-                client.device_settings = recommended
-    elif hasattr(client, "device_settings"):
-        client.device_settings = recommended
-
-    # 3. Ensure app_version & version_code are strictly updated to modern 449 release
-    if hasattr(client, "device_settings") and isinstance(client.device_settings, dict):
-        client.device_settings["app_version"] = DEFAULT_APP_VERSION
-        client.device_settings["version_code"] = DEFAULT_VERSION_CODE
+    if is_termux():
+        hardware = get_real_device_info()
+        if hardware:
+            if hasattr(client, "set_device"):
+                try:
+                    client.set_device(hardware)
+                except Exception:
+                    if hasattr(client, "device_settings") and isinstance(client.device_settings, dict):
+                        client.device_settings.update(hardware)
+            elif hasattr(client, "device_settings") and isinstance(client.device_settings, dict):
+                client.device_settings.update(hardware)
