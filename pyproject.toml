@@ -5,9 +5,9 @@ description = "Smart, safe Instagram CLI engagement bot with 2FA support, persis
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "instagrapi>=3.0.16",
-    "questionary>=2.1.0",
-    "rich>=14.0.0",
+    "instagrapi>=3.2.2",
+    "questionary>=2.1.1",
+    "rich>=15.0.0",
 ]
 
 [project.scripts]

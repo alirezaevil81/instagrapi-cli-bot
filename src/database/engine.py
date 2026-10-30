@@ -6,15 +6,27 @@ import os
 import sqlite3
 from src.config import DB_PATH, DATABASE_DIR
 
+_DB_INITIALIZED = False
+
 def get_db_connection() -> sqlite3.Connection:
-    """Creates and returns a thread-safe SQLite connection to storage/database/bot.db."""
+    """Creates and returns a thread-safe SQLite connection to storage/database/bot.db with WAL mode."""
     os.makedirs(DATABASE_DIR, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH, timeout=20)
+    conn = sqlite3.connect(DB_PATH, timeout=30.0)
     conn.row_factory = sqlite3.Row
+    try:
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA synchronous=NORMAL;")
+        conn.execute("PRAGMA busy_timeout=30000;")
+    except Exception:
+        pass
     return conn
 
-def init_db():
-    """Initializes SQLite tables for queues and interaction histories."""
+def init_db(force: bool = False):
+    """Initializes SQLite tables and indexes once for queues and interaction histories."""
+    global _DB_INITIALIZED
+    if _DB_INITIALIZED and not force:
+        return
+
     with get_db_connection() as conn:
         cursor = conn.cursor()
         # Table for target users queue
@@ -72,4 +84,24 @@ def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+
+        # Performance indexes for instant O(1) deduplication lookups
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_interaction_media_action 
+            ON interaction_history (media_pk, action_type, success)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_interaction_user_action 
+            ON interaction_history (target_user_pk, action_type, success)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_target_users_status 
+            ON target_users_queue (status)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_target_comments_status 
+            ON target_comments_queue (status)
+        """)
         conn.commit()
+
+    _DB_INITIALIZED = True

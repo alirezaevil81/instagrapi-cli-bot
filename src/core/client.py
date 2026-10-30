@@ -33,7 +33,14 @@ from src.core.exceptions import (
 )
 
 import questionary
-from src.core.device import apply_device_settings, DEFAULT_APP_VERSION
+from src.core.device import (
+    apply_device_settings,
+    DEFAULT_APP_VERSION,
+    format_device_summary,
+    is_real_phone_hardware,
+    get_recommended_device,
+    is_termux,
+)
 from src.config import (
     comments,
     SESSIONS_DIR,
@@ -87,6 +94,17 @@ class Bot(Client):
         
         # Configure modern Android app profile and hardware settings (instagrapi 3.0+)
         apply_device_settings(self)
+        if is_real_phone_hardware():
+            log_success(f"Termux detected: Using your real phone hardware profile ({format_device_summary(self.device_settings)}) :iphone:")
+        elif is_termux():
+            log_print(f"Termux Android profile active: {format_device_summary(self.device_settings)} :iphone:")
+
+        # Configure modern curl HTTP/2 private transport in instagrapi 3.1+ / 3.2+
+        if hasattr(self, "set_retry_config"):
+            try:
+                self.set_retry_config(private_transport="curl")
+            except Exception:
+                pass
 
         # Configure proxy from environment if defined (supports IG_PROXY, PROXY, INSTA_PROXY, HTTPS_PROXY, HTTP_PROXY)
         proxy_url = os.getenv("IG_PROXY") or os.getenv("PROXY") or os.getenv("INSTA_PROXY") or os.getenv("HTTPS_PROXY") or os.getenv("HTTP_PROXY")
@@ -155,6 +173,10 @@ class Bot(Client):
                 self.set_retry_config(private_transport="curl")
             except Exception:
                 pass
+
+        # If loaded session has no device settings, apply current device profile
+        if not getattr(self, "device_settings", None):
+            apply_device_settings(self)
 
         if getattr(self, "_in_start_flow", False):
             self.delay_range = None
@@ -901,6 +923,8 @@ class Bot(Client):
         except Exception as e:
             if is_network_error(e):
                 log_error(f":satellite: Network/DNS error marking post {media_id} as seen: {e}")
+                if handle_connection_recovery(e, action_name=f"Marking post {media_id} as seen"):
+                    return self.seen_user_post(media_id, username=username, user_pk=user_pk)
             else:
                 log_error(f"Cannot mark post {media_id} as seen: ", str(e))
             return False

@@ -241,27 +241,31 @@ def update_ongoing_progress_notification(
     if not is_termux() or not has_termux_api():
         return False
 
-    status_tag = f"[{status}]" if status and status not in ("RUNNING", "ACTIVE") else ""
-    title = f"🤖 {bot_title} {status_tag}".strip()
+    # 1. Determine stopped or running state
+    status_lower = (status or "").lower()
+    is_stopped = (
+        status in ("PAUSED", "WAITING_NETWORK", "STOPPED", "INTERRUPTED", "OFFLINE")
+        or "wait" in status_lower
+        or "pause" in status_lower
+        or "stop" in status_lower
+    )
 
-    target_display = f"@{target.lstrip('@')}" if target and target != "-" else ""
-
-    if total_items > 0:
-        pct_done = min(100, int((processed_count / total_items) * 100))
-        pct_remaining = max(0, 100 - pct_done)
-        
-        # Primary headline: percent remaining & progress
-        headline = f"⏳ {pct_remaining}% remaining ({pct_done}% done • {processed_count}/{total_items})"
-        
-        stage_desc = f"📍 Stage: {current_step}"
-        if target_display:
-            stage_desc += f" ({target_display})"
-        
-        content = f"{headline}\n{stage_desc}"
+    if status == "WAITING_NETWORK":
+        status_text = "🔴 متوقف شده (در انتظار اتصال)"
+    elif is_stopped:
+        status_text = "🔴 متوقف شده"
     else:
-        # Continuous mode / undetermined total count
-        target_info = f" ({target_display})" if target_display else ""
-        content = f"⚡ Processed: {processed_count} items\n📍 Stage: {current_step}{target_info}"
+        status_text = "🟢 در حال اجرا"
+
+    # 2. Determine progress percentage only
+    if total_items > 0:
+        pct_done = min(100, max(0, int((processed_count / total_items) * 100)))
+        progress_text = f"پیشرفت: {pct_done}%"
+    else:
+        progress_text = f"پیشرفت: {processed_count} آیتم انجام شده" if processed_count > 0 else "پیشرفت: 0%"
+
+    title = f"🤖 {bot_title}"
+    content = f"{progress_text}\nوضعیت: {status_text}"
 
     # Deduplicate exact identical consecutive content within short window
     if content == _last_ongoing_content and (now - _last_ongoing_update_time) < 8.0:

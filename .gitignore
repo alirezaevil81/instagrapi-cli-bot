@@ -233,3 +233,8 @@ package-lock.json
 server.js
 uv.lock
 node_modules/
+
+# AI Studio
+.aistudio/
+.aistudio
+

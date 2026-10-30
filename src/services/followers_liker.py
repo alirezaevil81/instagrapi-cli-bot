@@ -9,6 +9,7 @@ import questionary
 from src.core.client import Bot
 from src.config import load_comments, COMMENTS_FILE_PATH
 from src.database.engine import init_db
+from src.database.repository import has_recent_interaction
 from src.utils import (
     log_print,
     log_sleep,
@@ -269,7 +270,7 @@ def main():
                         action_performed = False
                         for post in user_posts:
                             post_pk = str(getattr(post, 'pk', str(post)))
-                            has_liked = getattr(post, 'has_liked', False)
+                            has_liked = getattr(post, 'has_liked', False) or has_recent_interaction(post_pk, 'like')
                             if has_liked:
                                 dash.record_action("skip", username, f"Post {post_pk} already liked")
                             else:

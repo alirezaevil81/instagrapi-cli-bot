@@ -2,14 +2,17 @@
 Robust Exception Mapping for Instagrapi.
 Safely extracts or provides fallback exception classes across various instagrapi releases.
 """
-import instagrapi.exceptions as ie
+try:
+    import instagrapi.exceptions as ie
+except ImportError:
+    ie = None
 
 # Base instagrapi exception
-ClientError = getattr(ie, "ClientError", Exception)
+ClientError = getattr(ie, "ClientError", Exception) if ie else Exception
 
 def _get_exc(name: str, base=ClientError):
     """Safely retrieves exception class from instagrapi.exceptions or returns a custom subclass."""
-    if hasattr(ie, name):
+    if ie and hasattr(ie, name):
         return getattr(ie, name)
     # Create a dynamic fallback exception class if not present in installed version
     return type(name, (base,), {})
@@ -44,13 +47,15 @@ ClientJSONDecodeError = _get_exc("ClientJSONDecodeError")
 ProxyAddressIsBlocked = _get_exc("ProxyAddressIsBlocked")
 
 def is_network_error(exc: Exception) -> bool:
-    """Detects if an exception is caused by DNS resolution failure, connection drop, timeout, or proxy error."""
+    """Detects if an exception is caused by DNS resolution failure, connection drop, timeout, socket reset, or proxy error."""
     if not isinstance(exc, Exception):
         return False
     exc_name = exc.__class__.__name__.lower()
     exc_str = str(exc).lower()
     keywords = [
-        "dns", "resolve", "connection", "connect", "timeout", "proxy",
-        "ssl", "transport", "network", "unreachable", "handshake"
+        "dns", "resolve", "connection", "connect", "timeout", "timed out", "proxy",
+        "ssl", "transport", "network", "unreachable", "handshake", "socket",
+        "reset", "abort", "broken pipe", "remotely closed", "econnreset",
+        "econnrefused", "ehostunreach", "enetunreach", "temporary failure"
     ]
     return any(k in exc_name or k in exc_str for k in keywords)

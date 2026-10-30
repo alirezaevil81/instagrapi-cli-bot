@@ -47,7 +47,7 @@ python run.py comments      # Target Comments Liker Bot (with 0-likes filter)
 
 ## ✨ Features
 
-- **Full Instagrapi 3.0+ Alignment**: Native support for modern CAA login, HTTP/2 requests via `curl_cffi`, Android 446 app profile, and automatic legacy password fallbacks.
+- **Full Instagrapi 3.2+ Alignment**: Native support for modern CAA login, HTTP/2 requests via `curl_cffi`, Android 446 app profile, and automatic legacy password fallbacks.
 - **Post Comments Liker**: Extracts comments from target posts, filters unliked comments (optional 0-likes filter), and likes them in chronological or reverse order.
 - **Continuous Timeline Feed Liker**: Scans your feed from newest to oldest, likes new posts, views stories, and auto-refreshes periodically.
 - **Interactive Session Picker**: Switch between saved sessions (`storage/sessions/`) or authenticate via SessionID cookie.
