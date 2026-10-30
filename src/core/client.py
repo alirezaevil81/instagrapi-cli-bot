@@ -174,6 +174,17 @@ class Bot(Client):
             except Exception:
                 pass
 
+        # Force upgrade older session app versions (e.g. 446 or older) to the modern 449 profile
+        if hasattr(self, "set_app"):
+            try:
+                self.set_app(DEFAULT_APP_VERSION)
+            except Exception:
+                pass
+
+        if hasattr(self, "device_settings") and isinstance(self.device_settings, dict):
+            self.device_settings["app_version"] = DEFAULT_APP_VERSION
+            self.device_settings["version_code"] = DEFAULT_VERSION_CODE
+
         # If loaded session has no device settings, apply current device profile
         if not getattr(self, "device_settings", None):
             apply_device_settings(self)
@@ -501,8 +512,29 @@ class Bot(Client):
                     log_error("Your IP or proxy address is blocked by Instagram.")
                     break
                 except ClientError as ce:
-                    log_error(f"Instagram ClientError: {ce}")
-                    continue
+                    ce_msg = str(ce)
+                    if "out of date" in ce_msg.lower() or "upgrade your app" in ce_msg.lower():
+                        log_warning(f"Instagram requested modern app profile: Upgrading app version to {DEFAULT_APP_VERSION}...")
+                        try:
+                            if hasattr(self, "set_app"):
+                                self.set_app(DEFAULT_APP_VERSION)
+                            if hasattr(self, "device_settings") and isinstance(self.device_settings, dict):
+                                self.device_settings["app_version"] = DEFAULT_APP_VERSION
+                                self.device_settings["version_code"] = DEFAULT_VERSION_CODE
+                            with console.status(f"[bold cyan]:hourglass_flowing_sand: Retrying login with updated profile...[/bold cyan]"):
+                                self.login(username=username, password=password)
+                                self.username = username
+                                session_path = self.get_session_path(username)
+                                self.dump_settings(session_path)
+                                log_success(f"Logged in successfully: @[bold cyan]{username}[/bold cyan] :white_check_mark:")
+                                login = True
+                                break
+                        except Exception as re_err:
+                            log_error(f"Auto-upgrade retry failed: {re_err}")
+                            continue
+                    else:
+                        log_error(f"Instagram ClientError: {ce}")
+                        continue
                 except Exception as e:
                     if is_network_error(e):
                         log_error(f":satellite: Network/VPN error during login for @{username}: {e}")

@@ -9,9 +9,17 @@ import platform
 import subprocess
 from typing import Dict, Any, Optional
 
-# Instagram 3.0+ default Android profile constants
-DEFAULT_APP_VERSION = "446.0.0.49.77"
-DEFAULT_VERSION_CODE = "446000049"
+# Instagram 3.2+ modern Android profile constants (version 449.0.0.52.84)
+try:
+    from instagrapi.config import (
+        DEFAULT_APP_VERSION as IG_DEFAULT_APP_VERSION,
+        APP_SETTINGS as IG_APP_SETTINGS,
+    )
+    DEFAULT_APP_VERSION = IG_DEFAULT_APP_VERSION
+    DEFAULT_VERSION_CODE = IG_APP_SETTINGS.get(DEFAULT_APP_VERSION, {}).get("version_code", "1079242191")
+except Exception:
+    DEFAULT_APP_VERSION = "449.0.0.52.84"
+    DEFAULT_VERSION_CODE = "1079242191"
 
 # Cached device settings so repeated calls are instantaneous
 _CACHED_DEVICE_SETTINGS: Optional[Dict[str, Any]] = None
@@ -148,18 +156,18 @@ def get_real_device_info() -> Dict[str, Any]:
             _CACHED_IS_REAL_HARDWARE = True
             return dict(settings)
 
-    # Fallback to recommended modern profile
-    sdk_int = int(get_android_sdk_level()) if get_android_sdk_level().isdigit() else 33
+    # Fallback to recommended modern profile matching instagrapi 3.2+ baseline
+    sdk_int = int(get_android_sdk_level()) if get_android_sdk_level().isdigit() else 34
     settings = {
         "app_version": DEFAULT_APP_VERSION,
         "android_version": sdk_int,
-        "android_release": "13",
-        "dpi": "420dpi",
-        "resolution": "1080x2400",
-        "manufacturer": "Google",
-        "device": "cheetah",
-        "model": "Pixel 7 Pro",
-        "cpu": "tensor",
+        "android_release": "14",
+        "dpi": "480dpi",
+        "resolution": "1344x2992",
+        "manufacturer": "Google/google",
+        "device": "husky",
+        "model": "Pixel 8 Pro",
+        "cpu": "husky",
         "version_code": DEFAULT_VERSION_CODE,
     }
     _CACHED_DEVICE_SETTINGS = settings
@@ -204,23 +212,28 @@ def get_recommended_device() -> Dict[str, Any]:
 def apply_device_settings(client: Any) -> None:
     """
     Configures device and app profile on an instagrapi Client instance.
-    Uses instagrapi 3.0's set_app() when available, falling back to set_device().
+    Uses instagrapi 3.2+'s set_app() when available, falling back to set_device().
     In Termux, extracts and applies the phone's genuine hardware specs.
     """
-    # 1. Apply modern app version profile in instagrapi 3.0+
+    # 1. Apply modern app version profile in instagrapi
     if hasattr(client, "set_app"):
         try:
             client.set_app(DEFAULT_APP_VERSION)
         except Exception:
             pass
 
-    # 2. Configure device fingerprint if device_settings is empty
-    if hasattr(client, "device_settings") and not client.device_settings:
-        recommended = get_recommended_device()
-        if hasattr(client, "set_device"):
-            try:
-                client.set_device(recommended)
-            except Exception:
+    # 2. Configure device fingerprint
+    recommended = get_recommended_device()
+    if hasattr(client, "set_device"):
+        try:
+            client.set_device(recommended)
+        except Exception:
+            if hasattr(client, "device_settings"):
                 client.device_settings = recommended
-        else:
-            client.device_settings = recommended
+    elif hasattr(client, "device_settings"):
+        client.device_settings = recommended
+
+    # 3. Ensure app_version & version_code are strictly updated to modern 449 release
+    if hasattr(client, "device_settings") and isinstance(client.device_settings, dict):
+        client.device_settings["app_version"] = DEFAULT_APP_VERSION
+        client.device_settings["version_code"] = DEFAULT_VERSION_CODE
